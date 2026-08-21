@@ -1,6 +1,10 @@
 #ifndef BOARD_H
 #define BOARD_H
 
+// DO NOT CHANGE
+#define BOARD_SIZE 81
+
+// can maybe change
 #define P1_START_POS 76
 #define P2_START_POS 4
 #define INITIAL_WALL_COUNT 10
@@ -18,7 +22,9 @@
 #define SWITCH_TURNS(boardPointer) ((boardPointer)->turn = (boardPointer)->turn % 2 + 1)
 
 #include <stdint.h>
-typedef struct _board {
+#include <stdbool.h>
+
+typedef struct _Board {
     uint64_t hWalls;
     uint64_t vWalls;
     uint8_t p1wc; // p1 wall count
@@ -32,6 +38,7 @@ typedef Board *pBoard;
 
 pBoard initializeBoard();
 void printBoard(pBoard);
-
+int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget); // returns -1 if no path found, otherwise returns length of the path
+bool placeWall(pBoard board,int8_t position,bool horizontal); // returns if the placement succeeded or not
 
 #endif

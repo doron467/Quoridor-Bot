@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "board.h"
+#include <ctype.h>
 
 int main(int argc, char **argv){
 
@@ -52,6 +53,32 @@ int main(int argc, char **argv){
                 } else {
                     printf("invalid move\n");
                 }
+            } else {
+                printf("invalid move\n");
+                if (c == '\n'){continue;}
+            }
+
+        } else if (c == 'h' || c == 'v') {
+            bool horizontal = c == 'h';
+            c = getc(stdin);
+            if (isdigit(c)){
+                int tens = (int) (c - '0');
+                c = getc(stdin);
+                if (isdigit(c)){
+
+                    int ones = (int) (c - '0');
+                    int pos = tens * 10 + ones;
+                    if (placeWall(board,pos,horizontal)){
+                        SWITCH_TURNS(board);
+                    } else {
+                        printf("invalid wall placement\n");
+                    }
+
+                } else {
+                    printf("invalid move\n");
+                    if (c == '\n'){continue;}
+                }
+
             } else {
                 printf("invalid move\n");
                 if (c == '\n'){continue;}
