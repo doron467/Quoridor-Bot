@@ -1,8 +1,15 @@
-#include <stdio.h>
 #include "board.h"
+#include "bot.h"
+
+#include <stdio.h>
 #include <ctype.h>
+#include <time.h>
+
+#define CLEAR_BUFFER() while (getc(stdin) != '\n');
 
 int main(int argc, char **argv){
+
+    srand(time(NULL));
 
     //printf("size: %lu\n",sizeof(Board));
     pBoard board = initializeBoard();
@@ -18,6 +25,15 @@ int main(int argc, char **argv){
 
         char action = getc(stdin);
         if (action == '\n'){continue;}
+
+        if (action == 'i'){
+            char buffer[4];
+            getBestMove(board,buffer);
+            printf("bot's move: %s\n",buffer);
+            CLEAR_BUFFER();
+            continue;
+        }
+
         char row = getc(stdin);
         if (row == '\n'){continue;}
         char column = getc(stdin);
@@ -66,7 +82,7 @@ int main(int argc, char **argv){
             printf("row and column must be digits\n");
         }
 
-        while (getc(stdin) != '\n'); // clear buffer
+         CLEAR_BUFFER();
 
     }
 
