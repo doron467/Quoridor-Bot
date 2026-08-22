@@ -9,10 +9,10 @@
 #define P2_START_POS 4
 #define INITIAL_WALL_COUNT 10
 
-#define LEFT(pos) ((pos) - 1)
-#define RIGHT(pos) ((pos) + 1)
-#define UP(pos) ((pos) - 9)
-#define DOWN(pos) ((pos) + 9)
+#define MOVE_LEFT(pos) ((pos) - 1)
+#define MOVE_RIGHT(pos) ((pos) + 1)
+#define MOVE_UP(pos) ((pos) - 9)
+#define MOVE_DOWN(pos) ((pos) + 9)
 
 #define CAN_LEFT(pos) ((pos) % 9 != 0)
 #define CAN_RIGHT(pos) ((pos) % 9 != 8)
@@ -23,6 +23,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
+typedef enum _Direction {LEFT,RIGHT,UP,DOWN} Direction;
 
 typedef struct _Board {
     uint64_t hWalls;
@@ -40,5 +42,6 @@ pBoard initializeBoard();
 void printBoard(pBoard);
 int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget); // returns -1 if no path found, otherwise returns length of the path
 bool placeWall(pBoard board,int8_t position,bool horizontal); // returns if the placement succeeded or not
+void getPlayerMoves(pBoard board,int8_t *buffer); // writes all possible player moves into the buffer, with -1 as the last move. min safe buffer length is 6
 
 #endif

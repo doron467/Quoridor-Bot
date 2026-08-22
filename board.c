@@ -24,8 +24,18 @@ pBoard initializeBoard(){
 void printBoard(pBoard board){
     char buffer[1000];
     int j = 0;
+
+    buffer[j++] = ' ';
+    for (int column = 0; column < 9; column++){
+        buffer[j++] = ' ';
+        buffer[j++] = (char) (column + '0');
+        buffer[j++] = ' ';
+    }
+    buffer[j++] = '\n';
+
     for (int row = 0; row < 9; row++){
         // print row
+        buffer[j++] = (char) (row + '0');
         for (int column = 0; column < 9; column++){
             char c = '*';
             if (board->p1pos == row * 9 + column){c = '1';}
@@ -66,6 +76,7 @@ void printBoard(pBoard board){
         }
 
         buffer[j++] = '\n';
+        buffer[j++] = ' ';
         // print horizontal walls
         if (row == 8){break;}
         for (int column = 0; column < 9; column++){
@@ -94,6 +105,184 @@ void printBoard(pBoard board){
     printf("turn: p%d\n",board->turn);
 }
 
+int8_t directionInBounds(int8_t pos, Direction dir){
+    switch (dir){
+        case LEFT:
+            if (CAN_LEFT(pos)){
+                return MOVE_LEFT(pos);
+            }
+            break;
+
+        case RIGHT:
+            if (CAN_RIGHT(pos)){
+                return MOVE_RIGHT(pos);
+            }
+            break;
+
+        case UP:
+            if (CAN_UP(pos)){
+                return MOVE_UP(pos);
+            }
+            break;
+
+        case DOWN:
+            if (CAN_DOWN(pos)){
+                return MOVE_DOWN(pos);
+            }
+            break;
+    }
+    return -1;
+}
+
+bool hasWall(uint64_t walls,int row,int column){
+    return walls & (UINT64_C(1) << row * 8 + column);
+}
+
+bool isBlocked(uint64_t hWalls,uint64_t vWalls,int8_t startPos,int row,int column, Direction dir){
+    if (directionInBounds(startPos,dir) != -1){
+        
+        if (dir == LEFT){
+            if (column > 0){
+                if (hasWall(vWalls,row-1,column-1)){
+                    return true;
+                }
+            }
+            if (column < 8){
+                if (hasWall(vWalls,row,column-1)){
+                    return true;
+                }
+            }
+        } else if (dir == RIGHT){
+            if (column > 0){
+                if (hasWall(vWalls,row-1,column)){
+                    return true;
+                }
+            }
+            if (column < 8){
+                if (hasWall(vWalls,row,column)){
+                    return true;
+                }
+            }
+        } else if (dir == UP){
+            if (row > 0){
+                if (hasWall(hWalls,row-1,column-1)){
+                    return true;
+                }
+            }
+            if (row < 8){
+                if (hasWall(hWalls,row-1,column)){
+                    return true;
+                }
+            }
+        } else if (dir == DOWN){
+            if (row > 0){
+                if (hasWall(hWalls,row,column-1)){
+                    return true;
+                }
+            }
+            if (row < 8){
+                if (hasWall(hWalls,row,column)){
+                    return true;
+                }
+            }
+        }
+
+    } else {
+        return true;
+    }
+
+    return false;
+}
+
+void getPlayerMoves(pBoard board,int8_t *buffer){
+    int8_t moverPos, otherPos;
+    if (board->turn == 1){
+        moverPos = board->p1pos;
+        otherPos = board->p2pos;
+    } else {
+        moverPos = board->p2pos;
+        otherPos = board->p1pos;
+    }
+
+    int row = moverPos / 9;
+    int column = moverPos % 9;
+    uint64_t hWalls = board->hWalls;
+    uint64_t vWalls = board->vWalls;
+
+    if (!isBlocked(hWalls,vWalls,moverPos,row,column,LEFT)){
+        if (MOVE_LEFT(moverPos) == otherPos){
+            if (!isBlocked(hWalls,vWalls,otherPos,row,column-1,LEFT)){
+                *(buffer++) = MOVE_LEFT(otherPos);
+            } else {
+                if (!isBlocked(hWalls,vWalls,otherPos,row,column-1,UP)){
+                    *(buffer++) = MOVE_UP(otherPos);
+                }
+                if (!isBlocked(hWalls,vWalls,otherPos,row,column-1,DOWN)){
+                    *(buffer++) = MOVE_DOWN(otherPos);
+                }
+            }
+        } else {
+            *(buffer++) = MOVE_LEFT(moverPos);
+        }
+    }
+
+
+    if (!isBlocked(hWalls,vWalls,moverPos,row,column,RIGHT)){
+        if (MOVE_RIGHT(moverPos) == otherPos){
+            if (!isBlocked(hWalls,vWalls,otherPos,row,column+1,RIGHT)){
+                *(buffer++) = MOVE_RIGHT(otherPos);
+            } else {
+                if (!isBlocked(hWalls,vWalls,otherPos,row,column+1,UP)){
+                    *(buffer++) = MOVE_UP(otherPos);
+                }
+                if (!isBlocked(hWalls,vWalls,otherPos,row,column+1,DOWN)){
+                    *(buffer++) = MOVE_DOWN(otherPos);
+                }
+            }
+        } else {
+            *(buffer++) = MOVE_RIGHT(moverPos);
+        }
+    }
+
+
+    if (!isBlocked(hWalls,vWalls,moverPos,row,column,UP)){
+        if (MOVE_UP(moverPos) == otherPos){
+            if (!isBlocked(hWalls,vWalls,otherPos,row-1,column,UP)){
+                *(buffer++) = MOVE_UP(otherPos);
+            } else {
+                if (!isBlocked(hWalls,vWalls,otherPos,row-1,column,LEFT)){
+                    *(buffer++) = MOVE_LEFT(otherPos);
+                }
+                if (!isBlocked(hWalls,vWalls,otherPos,row-1,column,RIGHT)){
+                    *(buffer++) = MOVE_RIGHT(otherPos);
+                }
+            }
+        } else {
+            *(buffer++) = MOVE_UP(moverPos);
+        }
+    }
+
+
+    if (!isBlocked(hWalls,vWalls,moverPos,row,column,DOWN)){
+        if (MOVE_DOWN(moverPos) == otherPos){
+            if (!isBlocked(hWalls,vWalls,otherPos,row+1,column,DOWN)){
+                *(buffer++) = MOVE_DOWN(otherPos);
+            } else {
+                if (!isBlocked(hWalls,vWalls,otherPos,row+1,column,LEFT)){
+                    *(buffer++) = MOVE_LEFT(otherPos);
+                }
+                if (!isBlocked(hWalls,vWalls,otherPos,row+1,column,RIGHT)){
+                    *(buffer++) = MOVE_RIGHT(otherPos);
+                }
+            }
+        } else {
+            *(buffer++) = MOVE_DOWN(moverPos);
+        }
+    }
+
+    *buffer = -1;
+}
+
 bool isQueued(int8_t pos, const uint32_t *queued)
 {
     if (pos < 32) {
@@ -119,6 +308,7 @@ void addToQueued(int8_t pos, uint32_t *queued)
 int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
     uint8_t queue[BOARD_SIZE];
     uint32_t queued[3] = {0};
+    int8_t parent[81];
 
     queue[0] = start;
     addToQueued(start,queued);
@@ -134,73 +324,51 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
         for (size_t i = 0; i < nodesInLevel; i++){
             int8_t pos = queue[head++];
             if (pos >= rankTarget * 9 && pos < (rankTarget + 1) * 9){
+
+                // print path
+                /*
+                int8_t temp = pos;
+                while (temp != start){
+                    printf("%d <-- ",temp);
+                    temp = parent[temp];
+                }
+                printf("%d\n",temp);
+                */
                 return depth;
             }
 
             int row = pos / 9;
             int column = pos % 9;
 
-            if (CAN_LEFT(pos) && !isQueued(LEFT(pos),queued)){
-                int8_t w1 = row * 8 + column - 1;
-                int8_t w2 = w1 - 8;
-                uint64_t mask = 0;
-                if (w1 < 64){
-                    mask |= UINT64_C(1) << w1;
-                }
-                if (w2 >= 0){
-                    mask |= UINT64_C(1) << w2;
-                }
-                if ((vWalls & mask) == 0){
-                    addToQueued(LEFT(pos),queued);
-                    queue[tail++] = LEFT(pos);
+            if (!isQueued(MOVE_LEFT(pos),queued)){
+                if (!isBlocked(hWalls,vWalls,pos,row,column,LEFT)){
+                    addToQueued(MOVE_LEFT(pos),queued);
+                    queue[tail++] = MOVE_LEFT(pos);
+                    parent[MOVE_LEFT(pos)] = pos;
                 }
             }
 
-            if (CAN_RIGHT(pos) && !isQueued(RIGHT(pos),queued)){
-                int8_t w1 = row * 8 + column;
-                int8_t w2 = w1 - 8;
-                uint64_t mask = 0;
-                if (w1 < 64){
-                    mask |= UINT64_C(1) << w1;
-                }
-                if (w2 >= 0){
-                    mask |= UINT64_C(1) << w2;
-                }
-                if ((vWalls & mask) == 0){
-                    addToQueued(RIGHT(pos),queued);
-                    queue[tail++] = RIGHT(pos);
+            if (!isQueued(MOVE_RIGHT(pos),queued)){
+                if (!isBlocked(hWalls,vWalls,pos,row,column,RIGHT)){
+                    addToQueued(MOVE_RIGHT(pos),queued);
+                    queue[tail++] = MOVE_RIGHT(pos);
+                    parent[MOVE_RIGHT(pos)] = pos;
                 }
             }
 
-            if (CAN_UP(pos) && !isQueued(UP(pos),queued)){
-                int8_t w1 = (row - 1) * 8 + column;
-                int8_t w2 = w1 - 1;
-                uint64_t mask = 0;
-                if (w1 < 64){
-                    mask |= UINT64_C(1) << w1;
-                }
-                if (w2 >= 0){
-                    mask |= UINT64_C(1) << w2;
-                }
-                if ((hWalls & mask) == 0){
-                    addToQueued(UP(pos),queued);
-                    queue[tail++] = UP(pos);
+            if (!isQueued(MOVE_UP(pos),queued)){
+                if (!isBlocked(hWalls,vWalls,pos,row,column,UP)){
+                    addToQueued(MOVE_UP(pos),queued);
+                    queue[tail++] = MOVE_UP(pos);
+                    parent[MOVE_UP(pos)] = pos;
                 }
             }
 
-            if (CAN_DOWN(pos) && !isQueued(DOWN(pos),queued)){
-                int8_t w1 = row * 8 + column;
-                int8_t w2 = w1 - 1;
-                uint64_t mask = 0;
-                if (w1 < 64){
-                    mask |= UINT64_C(1) << w1;
-                }
-                if (w2 >= 0){
-                    mask |= UINT64_C(1) << w2;
-                }
-                if ((hWalls & mask) == 0){
-                    addToQueued(DOWN(pos),queued);
-                    queue[tail++] = DOWN(pos);
+            if (CAN_DOWN(pos) && !isQueued(MOVE_DOWN(pos),queued)){
+                if (!isBlocked(hWalls,vWalls,pos,row,column,DOWN)){
+                    addToQueued(MOVE_DOWN(pos),queued);
+                    queue[tail++] = MOVE_DOWN(pos);
+                    parent[MOVE_DOWN(pos)] = pos;
                 }
             }
         }

@@ -16,77 +16,54 @@ int main(int argc, char **argv){
 
         printf("enter next move: ");
 
-        char c = getc(stdin);
-        if (c == 'm'){
+        char action = getc(stdin);
+        if (action == '\n'){continue;}
+        char row = getc(stdin);
+        if (row == '\n'){continue;}
+        char column = getc(stdin);
+        if (column == '\n'){continue;}
 
-            int8_t pos = board->turn == 1 ? board->p1pos : board->p2pos;
-            c = getc(stdin);
-            if (c == 'l'){
-                if (CAN_LEFT(pos)){
-                    pos = LEFT(pos);
-                    if (board->turn == 1){board->p1pos=pos;} else {board->p2pos = pos;}
-                    SWITCH_TURNS(board);
-                } else {
-                    printf("invalid move\n");
-                }
-            } else if (c == 'r'){
-                if (CAN_RIGHT(pos)){
-                    pos = RIGHT(pos);
-                    if (board->turn == 1){board->p1pos=pos;} else {board->p2pos = pos;}
-                    SWITCH_TURNS(board);
-                } else {
-                    printf("invalid move\n");
-                }
-            } else if (c == 'u'){
-                if (CAN_UP(pos)){
-                    pos = UP(pos);
-                    if (board->turn == 1){board->p1pos=pos;} else {board->p2pos = pos;}
-                    SWITCH_TURNS(board);
-                } else {
-                    printf("invalid move\n");
-                }
-            } else if (c == 'd'){
-                if (CAN_DOWN(pos)){
-                    pos = DOWN(pos);
-                    if (board->turn == 1){board->p1pos=pos;} else {board->p2pos = pos;}
-                    SWITCH_TURNS(board);
-                } else {
-                    printf("invalid move\n");
-                }
-            } else {
-                printf("invalid move\n");
-                if (c == '\n'){continue;}
-            }
+        if (isdigit(row) && isdigit(column)){
+            row -= '0';
+            column -= '0';
 
-        } else if (c == 'h' || c == 'v') {
-            bool horizontal = c == 'h';
-            c = getc(stdin);
-            if (isdigit(c)){
-                int tens = (int) (c - '0');
-                c = getc(stdin);
-                if (isdigit(c)){
+            if (row >= 0 && row < 9 && column >= 0 && column < 9){
 
-                    int ones = (int) (c - '0');
-                    int pos = tens * 10 + ones;
-                    if (placeWall(board,pos,horizontal)){
+                if (action == 'm'){
+                    int8_t buffer[10]; 
+                    int8_t pos = row * 9 + column;
+                    getPlayerMoves(board,buffer);
+                    bool valid = false;
+                    for (int i = 0; buffer[i] != -1; i++){
+                        if (buffer[i] == pos){
+                            valid = true;
+                            break;
+                        }
+                    }
+
+                    if (valid){
+                        if (board->turn == 1){board->p1pos = pos;} else {board->p2pos = pos;}
+                        SWITCH_TURNS(board);
+                    } else {
+                        printf("invalid move\n");
+                    }
+
+                } else if (action == 'h' || action == 'v'){
+                    int8_t pos = row * 8 + column;
+                    if (placeWall(board,pos,action == 'h')){
+                        if (board->turn == 1){board->p1wc--;} else {board->p2wc--;}
                         SWITCH_TURNS(board);
                     } else {
                         printf("invalid wall placement\n");
                     }
-
-                } else {
-                    printf("invalid move\n");
-                    if (c == '\n'){continue;}
                 }
 
             } else {
-                printf("invalid move\n");
-                if (c == '\n'){continue;}
+                printf("row and column must be in range\n");
             }
 
         } else {
-            printf("invalid move\n");
-            if (c == '\n'){continue;}
+            printf("row and column must be digits\n");
         }
 
         while (getc(stdin) != '\n'); // clear buffer
