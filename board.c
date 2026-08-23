@@ -21,6 +21,22 @@ pBoard initializeBoard(){
     return gameBoard;
 }
 
+bool isGameOver(pBoard board){
+    return !CAN_UP(board->p1pos) || !CAN_DOWN(board->p2pos);
+}
+
+void printMove(Move *move){
+    if (move->moveType == MOVEMENT){
+        int row = move->b2 / 9;
+        int column = move->b2 % 9;
+        printf("m%d%d\n",row,column);
+    } else {
+        int row = move->b1 / 8;
+        int column = move->b1 % 8;
+        printf("%c%d%d\n",move->moveType == HORIZONTAL ? 'h' : 'v',row,column);
+    }
+}
+
 void makeMove(pBoard board,Move *move){
     if (move->moveType == MOVEMENT){
         int8_t target = (int8_t) move->b2;
@@ -182,45 +198,45 @@ bool isBlocked(uint64_t hWalls,uint64_t vWalls,int8_t startPos,int row,int colum
     if (directionInBounds(startPos,dir) != -1){
         
         if (dir == LEFT){
-            if (column > 0){
+            if (row > 0){
                 if (hasWall(vWalls,row-1,column-1)){
                     return true;
                 }
             }
-            if (column < 8){
+            if (row < 8){
                 if (hasWall(vWalls,row,column-1)){
                     return true;
                 }
             }
         } else if (dir == RIGHT){
-            if (column > 0){
+            if (row > 0){
                 if (hasWall(vWalls,row-1,column)){
                     return true;
                 }
             }
-            if (column < 8){
+            if (row < 8){
                 if (hasWall(vWalls,row,column)){
                     return true;
                 }
             }
         } else if (dir == UP){
-            if (row > 0){
+            if (column > 0){
                 if (hasWall(hWalls,row-1,column-1)){
                     return true;
                 }
             }
-            if (row < 8){
+            if (column < 8){
                 if (hasWall(hWalls,row-1,column)){
                     return true;
                 }
             }
         } else if (dir == DOWN){
-            if (row > 0){
+            if (column > 0){
                 if (hasWall(hWalls,row,column-1)){
                     return true;
                 }
             }
-            if (row < 8){
+            if (column < 8){
                 if (hasWall(hWalls,row,column)){
                     return true;
                 }
@@ -471,7 +487,5 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
         return false; // can't trap player 2
     }
 
-    // place the wall in the real board
-    //if (horizontal){board->hWalls |= mask;} else {board->vWalls |= mask;}
     return true;
 }

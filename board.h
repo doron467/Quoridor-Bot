@@ -51,8 +51,9 @@ typedef struct _Move {
 } Move;
 
 pBoard initializeBoard();
-
-void printBoard(pBoard);
+void printBoard(pBoard board);
+bool isGameOver(pBoard board);
+void printMove(Move *move);
 
 /*
 makes a move on the board.

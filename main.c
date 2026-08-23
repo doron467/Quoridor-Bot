@@ -31,9 +31,12 @@ int main(int argc, char **argv){
         if (action == 'i' || action == 'r'){
 
             if (action == 'i'){
-                char buffer[4];
-                getBestMove(board,buffer);
-                printf("bot's move: %s\n",buffer);
+                
+                Move bestMove;
+                getBestMove(board,&bestMove);
+                printf("bot's move: ");
+                printMove(&bestMove);
+
             } else if (action == 'r'){
 
                 if (nextMoveIndex > 0){
@@ -72,9 +75,6 @@ int main(int argc, char **argv){
                     }
 
                     if (valid){
-                        // if (board->turn == 1){board->p1pos = pos;} else {board->p2pos = pos;}
-                        // SWITCH_TURNS(board);
-
                         Move move = {MOVEMENT,board->turn == 1 ? board->p1pos : board->p2pos, pos};
                         makeMove(board,&move);
                         movesBuffer[nextMoveIndex++] = move;
@@ -86,8 +86,6 @@ int main(int argc, char **argv){
                 } else if (action == 'h' || action == 'v'){
                     int8_t pos = row * 8 + column;
                     if (canPlaceWall(board,pos,action == 'h')){
-                        // if (board->turn == 1){board->p1wc--;} else {board->p2wc--;}
-                        // SWITCH_TURNS(board);
                         Move move = {action == 'h' ? HORIZONTAL : VERTICAL,pos,0};
                         makeMove(board,&move);
                         movesBuffer[nextMoveIndex++] = move;
