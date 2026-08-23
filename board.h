@@ -25,10 +25,11 @@
 #include <stdbool.h>
 
 typedef enum _Direction {LEFT,RIGHT,UP,DOWN} Direction;
+typedef enum _MoveType {MOVEMENT,HORIZONTAL,VERTICAL} MoveType;
 
 typedef struct _Board {
-    uint64_t hWalls;
-    uint64_t vWalls;
+    uint64_t hWalls; // hashmap for horizontal walls
+    uint64_t vWalls; // hashmap for vertical walls
     uint8_t p1wc; // p1 wall count
     uint8_t p2wc; // p2 wall count
     int8_t p1pos; // 0 indexed from top left
@@ -38,10 +39,45 @@ typedef struct _Board {
 
 typedef Board *pBoard;
 
+
+/*
+when move type is MOVEMENT, b1 is where the player was, and b2 is where the player went.
+when move type is HORIZONTAL/VERTICAL, b1 is the position of the wall. b2 is garbage
+*/
+typedef struct _Move {
+    MoveType moveType;
+    int8_t b1;
+    int8_t b2;
+} Move;
+
 pBoard initializeBoard();
+
 void printBoard(pBoard);
-int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget); // returns -1 if no path found, otherwise returns length of the path
-bool placeWall(pBoard board,int8_t position,bool horizontal); // returns if the placement succeeded or not
-void getPlayerMoves(pBoard board,int8_t *buffer); // writes all possible player moves into the buffer, with -1 as the last move. min safe buffer length is 6
+
+/*
+makes a move on the board.
+no safety checks are done, to keep the function fast.
+it's the responsibility of the caller to check if a move is legal or not before calling the function.
+*/
+void makeMove(pBoard board,Move *move);
+
+/*
+unmakes a move on the board.
+no safety checks are done, to keep the function fast.
+it's the responsibility of the caller to check if a move is legal or not before calling the function.
+*/
+void unmakeMove(pBoard board, Move *move);
+
+// returns -1 if no path found, otherwise returns length of the path
+int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget);
+
+// returns if the placement succeeded or not
+bool canPlaceWall(pBoard board,int8_t position,bool horizontal);
+
+/*
+writes all possible player moves into the buffer, with -1 as the last move.
+the minimum safe length for the buffer is 6. recommendation is 10
+*/
+void getPlayerMoves(pBoard board,int8_t *buffer);
 
 #endif

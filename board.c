@@ -21,6 +21,46 @@ pBoard initializeBoard(){
     return gameBoard;
 }
 
+void makeMove(pBoard board,Move *move){
+    if (move->moveType == MOVEMENT){
+        int8_t target = (int8_t) move->b2;
+        if (board->turn == 1){board->p1pos = target;} else {board->p2pos = target;}
+    } else {
+
+        if (move->moveType == HORIZONTAL){
+            board->hWalls |= UINT64_C(1) << move->b1;
+        } else {
+            board->vWalls |= UINT64_C(1) << move->b1;
+        }
+
+        if (board->turn == 1){board->p1wc--;} else {board->p2wc--;}
+
+    }
+
+    SWITCH_TURNS(board);
+}
+
+void unmakeMove(pBoard board, Move *move){
+
+    SWITCH_TURNS(board);
+
+    if (move->moveType == MOVEMENT){
+        int8_t target = (int8_t) move->b1;
+        if (board->turn == 1){board->p1pos = target;} else {board->p2pos = target;}
+    } else {
+
+        if (move->moveType == HORIZONTAL){
+            board->hWalls ^= UINT64_C(1) << move->b1;
+        } else {
+            board->vWalls ^= UINT64_C(1) << move->b1;
+        }
+
+        if (board->turn == 1){board->p1wc++;} else {board->p2wc++;}
+
+    }
+
+}
+
 void printBoard(pBoard board){
     char buffer[1000];
     int j = 0;
@@ -380,7 +420,7 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
     return -1;
 }
 
-bool placeWall(pBoard board,int8_t position,bool horizontal){
+bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
 
     if ((board->turn == 1 ? board->p1wc : board->p2wc) <= 0){
         return false; // out of walls to place
@@ -432,6 +472,6 @@ bool placeWall(pBoard board,int8_t position,bool horizontal){
     }
 
     // place the wall in the real board
-    if (horizontal){board->hWalls |= mask;} else {board->vWalls |= mask;}
+    //if (horizontal){board->hWalls |= mask;} else {board->vWalls |= mask;}
     return true;
 }

@@ -1,0 +1,6 @@
+
+#OBJECT FILES
+*.o
+
+#EXEC
+Quoridor

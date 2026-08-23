@@ -10,6 +10,8 @@
 int main(int argc, char **argv){
 
     srand(time(NULL));
+    Move movesBuffer[1000];
+    size_t nextMoveIndex = 0;
 
     //printf("size: %lu\n",sizeof(Board));
     pBoard board = initializeBoard();
@@ -26,10 +28,22 @@ int main(int argc, char **argv){
         char action = getc(stdin);
         if (action == '\n'){continue;}
 
-        if (action == 'i'){
-            char buffer[4];
-            getBestMove(board,buffer);
-            printf("bot's move: %s\n",buffer);
+        if (action == 'i' || action == 'r'){
+
+            if (action == 'i'){
+                char buffer[4];
+                getBestMove(board,buffer);
+                printf("bot's move: %s\n",buffer);
+            } else if (action == 'r'){
+
+                if (nextMoveIndex > 0){
+                    unmakeMove(board,&movesBuffer[--nextMoveIndex]);
+                } else {
+                    printf("no moves to unmake\n");
+                }
+
+            }
+
             CLEAR_BUFFER();
             continue;
         }
@@ -58,17 +72,25 @@ int main(int argc, char **argv){
                     }
 
                     if (valid){
-                        if (board->turn == 1){board->p1pos = pos;} else {board->p2pos = pos;}
-                        SWITCH_TURNS(board);
+                        // if (board->turn == 1){board->p1pos = pos;} else {board->p2pos = pos;}
+                        // SWITCH_TURNS(board);
+
+                        Move move = {MOVEMENT,board->turn == 1 ? board->p1pos : board->p2pos, pos};
+                        makeMove(board,&move);
+                        movesBuffer[nextMoveIndex++] = move;
+
                     } else {
                         printf("invalid move\n");
                     }
 
                 } else if (action == 'h' || action == 'v'){
                     int8_t pos = row * 8 + column;
-                    if (placeWall(board,pos,action == 'h')){
-                        if (board->turn == 1){board->p1wc--;} else {board->p2wc--;}
-                        SWITCH_TURNS(board);
+                    if (canPlaceWall(board,pos,action == 'h')){
+                        // if (board->turn == 1){board->p1wc--;} else {board->p2wc--;}
+                        // SWITCH_TURNS(board);
+                        Move move = {action == 'h' ? HORIZONTAL : VERTICAL,pos,0};
+                        makeMove(board,&move);
+                        movesBuffer[nextMoveIndex++] = move;
                     } else {
                         printf("invalid wall placement\n");
                     }
@@ -85,6 +107,8 @@ int main(int argc, char **argv){
          CLEAR_BUFFER();
 
     }
+
+    free(board);
 
     return 0;
 }

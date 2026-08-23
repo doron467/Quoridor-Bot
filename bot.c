@@ -34,7 +34,7 @@ void getBestMove(pBoard board,char *buffer){
 
     for (int i = 0; i < 81; i++){
         temp = *board;
-        if (placeWall(&temp,i,true)){
+        if (canPlaceWall(&temp,i,true)){
             int eval = bfs(temp.hWalls,temp.vWalls,temp.p1pos,0) - bfs(temp.hWalls,temp.vWalls,temp.p2pos,8);
             if ((turn == 1 && eval < bestEval) || (turn == 2 && eval > bestEval)){
                 bestEval = eval;
@@ -49,7 +49,7 @@ void getBestMove(pBoard board,char *buffer){
 
     for (int i = 0; i < 81; i++){
         temp = *board;
-        if (placeWall(&temp,i,false)){
+        if (canPlaceWall(&temp,i,false)){
             int eval = bfs(temp.hWalls,temp.vWalls,temp.p1pos,0) - bfs(temp.hWalls,temp.vWalls,temp.p2pos,8);
             if ((turn == 1 && eval < bestEval) || (turn == 2 && eval > bestEval)){
                 bestEval = eval;
