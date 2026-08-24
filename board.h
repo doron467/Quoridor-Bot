@@ -35,6 +35,10 @@ typedef struct _Board {
     int8_t p1pos; // 0 indexed from top left
     int8_t p2pos; // 0 indexed from top left
     uint8_t turn; // 1 if p1 turn, 2 if p2 turn
+
+    bool updated; // if updated is set to false, d1 and d2 shouldn't be trusted
+    uint8_t d1; // length of shortest path for p1 to his goal
+    uint8_t d2; // length of shortest path for p2 to his goal
 } Board;
 
 typedef Board *pBoard;

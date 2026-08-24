@@ -18,6 +18,8 @@ pBoard initializeBoard(){
     gameBoard->hWalls = 0;
     gameBoard->vWalls = 0;
     gameBoard->turn = 1;
+
+    gameBoard->updated = false;
     return gameBoard;
 }
 
@@ -41,8 +43,10 @@ void makeMove(pBoard board,Move *move){
     if (move->moveType == MOVEMENT){
         int8_t target = (int8_t) move->b2;
         if (board->turn == 1){board->p1pos = target;} else {board->p2pos = target;}
+        board->updated = false;
     } else {
 
+        board->updated = true;
         if (move->moveType == HORIZONTAL){
             board->hWalls |= UINT64_C(1) << move->b1;
         } else {
@@ -59,6 +63,7 @@ void makeMove(pBoard board,Move *move){
 void unmakeMove(pBoard board, Move *move){
 
     SWITCH_TURNS(board);
+    board->updated = false;
 
     if (move->moveType == MOVEMENT){
         int8_t target = (int8_t) move->b1;
@@ -486,6 +491,9 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
     if (depth2 == -1){
         return false; // can't trap player 2
     }
+
+    board->d1 = depth1;
+    board->d2 = depth2;
 
     return true;
 }
