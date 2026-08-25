@@ -540,3 +540,19 @@ size_t getLegalMoves(pBoard board,Move *movesBuffer){
 
     return movesBuffer - bufferCopy;
 }
+
+bool isLegalMove(pBoard board, Move *move){
+    if (move->moveType == MOVEMENT){
+        int8_t amogus[10];
+        getPlayerMoves(board,amogus);
+        for (size_t i = 0; amogus[i] != -1; i++){
+            if (amogus[i] == move->b2){
+                return true;
+            }
+        }
+        return false;
+    } else if (move->moveType == HORIZONTAL || move->moveType == VERTICAL){
+        return canPlaceWall(board,move->b1,move->moveType == HORIZONTAL);
+    }
+    return false;
+}

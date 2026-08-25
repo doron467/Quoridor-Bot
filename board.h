@@ -94,4 +94,6 @@ note that the buffer here is a struct move, while in getPlayerMoves it's an int
 */
 size_t getLegalMoves(pBoard board,Move *movesBuffer);
 
+bool isLegalMove(pBoard board, Move *move);
+
 #endif

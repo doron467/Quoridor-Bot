@@ -168,7 +168,7 @@ void getBestMove(pBoard board,Move *move){
         }
     }
 
-    printf("evaluation: %d\n",score);
-    printf("thinking depth: %d\n",i-2);
+    // printf("evaluation: %d\n",score);
+    // printf("thinking depth: %d\n",i-2);
 
 }
