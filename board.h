@@ -23,9 +23,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 typedef enum _Direction {LEFT,RIGHT,UP,DOWN} Direction;
-typedef enum _MoveType {MOVEMENT,HORIZONTAL,VERTICAL} MoveType;
+typedef enum _MoveType {MOVEMENT,HORIZONTAL,VERTICAL,NULL_MOVE} MoveType;
 
 typedef struct _Board {
     uint64_t hWalls; // hashmap for horizontal walls
@@ -81,8 +82,16 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal);
 
 /*
 writes all possible player moves into the buffer, with -1 as the last move.
-the minimum safe length for the buffer is 6. recommendation is 10
+the minimum safe length for the buffer is 6. recommendation is 10.
+also returns the amount of legal squares the player can move to
 */
-void getPlayerMoves(pBoard board,int8_t *buffer);
+size_t getPlayerMoves(pBoard board,int8_t *buffer);
+
+/*
+same as getPlayerMoves, but returns ALL moves, with wall placements included.
+min length for the buffer is 134 (maybe). recommended length is 200
+note that the buffer here is a struct move, while in getPlayerMoves it's an int
+*/
+size_t getLegalMoves(pBoard board,Move *movesBuffer);
 
 #endif

@@ -255,7 +255,8 @@ bool isBlocked(uint64_t hWalls,uint64_t vWalls,int8_t startPos,int row,int colum
     return false;
 }
 
-void getPlayerMoves(pBoard board,int8_t *buffer){
+size_t getPlayerMoves(pBoard board,int8_t *buffer){
+    int8_t *bufferCopy = buffer;
     int8_t moverPos, otherPos;
     if (board->turn == 1){
         moverPos = board->p1pos;
@@ -342,6 +343,7 @@ void getPlayerMoves(pBoard board,int8_t *buffer){
     }
 
     *buffer = -1;
+    return buffer - bufferCopy;
 }
 
 bool isQueued(int8_t pos, const uint32_t *queued)
@@ -496,4 +498,45 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
     board->d2 = depth2;
 
     return true;
+}
+
+size_t getLegalMoves(pBoard board,Move *movesBuffer){
+    
+    Move *bufferCopy = movesBuffer;
+
+    int8_t movementBuffer[10];
+    getPlayerMoves(board,movementBuffer);
+    for (int i = 0; movementBuffer[i] != -1; i++){
+        Move move = {
+            MOVEMENT,
+            board->turn == 1 ? board->p1pos : board->p2pos,
+            movementBuffer[i]
+        };
+        *(movesBuffer++) = move;
+    }
+
+
+    for (int8_t i = 0; i < 64; i++){
+        if (canPlaceWall(board,i,true)){
+            Move move = {
+                HORIZONTAL,
+                i,
+                0
+            };
+            *(movesBuffer++) = move;
+        }
+        if (canPlaceWall(board,i,false)){
+            Move move = {
+                VERTICAL,
+                i,
+                0
+            };
+            *(movesBuffer++) = move;
+        }
+    }
+
+    Move nullMove = {NULL_MOVE,0,0};
+    *movesBuffer = nullMove;
+
+    return movesBuffer - bufferCopy;
 }
