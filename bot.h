@@ -1,4 +1,5 @@
 #define THINKING_TIME_LIMIT 5 // how long (in seconds) is the agent allowed to think per turn
+#define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
 
 // do not change
@@ -26,10 +27,25 @@ typedef struct _ZobristValues {
     uint64_t turnHash[2];
 } ZobristValues;
 
+typedef enum _TTFlag {
+    TT_EXACT,
+    TT_UPPER_BOUND,
+    TT_LOWER_BOUND
+} TTFlag;
+
+typedef struct _TTEntry {
+    uint64_t key;
+    int score;
+    int depth;
+    Move bestMove;
+    TTFlag flag;
+} TTEntry;
+
 typedef struct _Bot {
     pBoard board;
     ZobristValues *zobristValues;
     uint64_t boardHash;
+    TTEntry transpositionsTable[TT_SIZE];
 } Bot;
 
 typedef Bot *pBot;

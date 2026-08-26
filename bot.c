@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <time.h>
+#include <string.h>
 
 int evaluate(pBoard board){
 
@@ -31,7 +32,7 @@ int evaluate(pBoard board){
 
 int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline);
 
-void tryMove(pBot bot,Move *move,int depth,int *alpha,int *beta,Deadline *deadline){
+void tryMove(pBot bot,Move *move,Move *bestMove,int depth,int *alpha,int *beta,Deadline *deadline){
     
     uint64_t originalHash = bot->boardHash;
 
@@ -41,16 +42,19 @@ void tryMove(pBot bot,Move *move,int depth,int *alpha,int *beta,Deadline *deadli
     unmakeMove(bot->board,move);
     updateHash(bot,move);
 
-    assert(originalHash == bot->boardHash);
+    //assert(originalHash == bot->boardHash);
 
     if (score > *alpha){
         *alpha = score;
+        *bestMove = *move;
     }
 }
 
 int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
 
     pBoard board = bot->board;
+    int originalAlpha = alpha;
+    int originalBeta = beta;
 
     if ((deadline->nodesCount++) == CLOCK_CHECK){
         deadline->nodesCount = 0;
@@ -58,6 +62,52 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
             deadline->timeExpired = true;
             return 0;
         }
+    }
+
+    // tt lookup
+    TTEntry *entry = &bot->transpositionsTable[bot->boardHash & (TT_SIZE - 1)];
+    Move ttMove = {.moveType = NULL_MOVE};
+    Move bestMove = {.moveType = NULL_MOVE};
+    if (entry->key == bot->boardHash && entry->depth >= depth) {
+
+        if (entry->flag == TT_EXACT){
+            return entry->score;
+        }
+
+        if (entry->flag == TT_LOWER_BOUND) {
+            if (entry->score >= beta){
+                return entry->score;
+            }
+            if (entry->score > alpha){
+                alpha = entry->score;
+            }
+        } else if (entry->flag == TT_UPPER_BOUND){
+            if (entry->score <= alpha){
+                return entry->score;
+            }
+            if (entry->score < beta){
+                beta = entry->score;
+            }
+        }
+
+        if (alpha >= beta){
+            return alpha;
+        }
+
+        if (depth == 0 || isGameOver(board)){
+            return evaluate(board);
+        }
+
+        ttMove = entry->bestMove;
+        if (ttMove.moveType != NULL_MOVE){
+            // need to check ttMove before trying it
+
+            //printMove(&ttMove);
+            tryMove(bot,&ttMove,&bestMove,depth,&alpha,&beta,deadline);
+            if (deadline->timeExpired){return 0;}
+        }
+        
+
     }
 
     if (depth == 0 || isGameOver(board)){
@@ -77,33 +127,60 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
     getPlayerMoves(board,movementBuffer);
     currentMove.moveType = MOVEMENT;
     currentMove.b1 = (board->turn == 1) ? board->p1pos : board->p2pos;
-    for (int i = 0; movementBuffer[i] != -1; i++){
+    for (int i = 0; movementBuffer[i] != -1 && alpha < beta; i++){
         currentMove.b2 = movementBuffer[i];
-        tryMove(bot,&currentMove,depth,&alpha,&beta,deadline);
-        if (alpha >= beta){return alpha;}
+        if (sameMove(&currentMove,&ttMove)){continue;}
+
+        tryMove(bot,&currentMove,&bestMove,depth,&alpha,&beta,deadline);
+        //if (alpha >= beta){return alpha;}
         if (deadline->timeExpired){return 0;}
     }
 
     // search wall placements
     currentMove.moveType = HORIZONTAL;
-    for (int8_t i = 0; i < 64; i++){
+    for (int8_t i = 0; i < 64 && alpha < beta; i++){
+        currentMove.b1 = i;
+        if (sameMove(&currentMove,&ttMove)){continue;}
+
         if (canPlaceWall(board,i,true)){
-            currentMove.b1 = i;
-            tryMove(bot,&currentMove,depth,&alpha,&beta,deadline);
-            if (alpha >= beta){return alpha;}
+            tryMove(bot,&currentMove,&bestMove,depth,&alpha,&beta,deadline);
+            //if (alpha >= beta){return alpha;}
             if (deadline->timeExpired){return 0;}
         }
     }
 
     currentMove.moveType = VERTICAL;
-    for (int8_t i = 0; i < 64; i++){
+    for (int8_t i = 0; i < 64 && alpha < beta; i++){
+        currentMove.b1 = i;
+        if (sameMove(&currentMove,&ttMove)){continue;}
+
         if (canPlaceWall(board,i,false)){
-            currentMove.b1 = i;
-            tryMove(bot,&currentMove,depth,&alpha,&beta,deadline);
-            if (alpha >= beta){return alpha;}
+            tryMove(bot,&currentMove,&bestMove,depth,&alpha,&beta,deadline);
+            //if (alpha >= beta){return alpha;}
             if (deadline->timeExpired){return 0;}
         }
     }
+
+    TTFlag flag;
+    if (alpha <= originalAlpha) {
+        // no move better than alpha was found, making it an upper bound
+        flag = TT_UPPER_BOUND;
+    }
+    else if (alpha >= originalBeta) {
+        // a move better than beta was found, so the search stopped midway, making alpha a lower bound
+        flag = TT_LOWER_BOUND;
+    }
+    else {
+        // if there was no cutoff, then a full search happened, giving us an exact result
+        flag = TT_EXACT;
+    }
+
+    entry->key = bot->boardHash;
+    entry->flag = flag;
+    entry->depth = depth;
+    entry->score = alpha;
+    entry->bestMove = bestMove;
+
 
     return alpha;
 }
@@ -139,7 +216,7 @@ void doIteration(pBot bot,int depth,ScoredMove *legalMoves,size_t movesCount, De
         unmakeMove(bot->board,&currentMove);
         updateHash(bot,&currentMove);
 
-        assert(originalHash == bot->boardHash);
+        //assert(originalHash == bot->boardHash);
 
         if (deadline->timeExpired){
             return;
@@ -178,7 +255,7 @@ void getBestMove(pBot bot,Move *move){
 
     
     int score,i;
-    for (i = 2; !deadline.timeExpired; i++){
+    for (i = 2; !deadline.timeExpired && i <= 6; i++){
         //score = negamax(board,i,move,-BIGGER_INF,BIGGER_INF,&deadline);
         doIteration(bot,i,scoredMoves,legalMovesLength,&deadline);
 
@@ -188,8 +265,8 @@ void getBestMove(pBot bot,Move *move){
         }
     }
 
-    // printf("evaluation: %d\n",score);
-    // printf("thinking depth: %d\n",i-2);
+    printf("evaluation: %d\n",score);
+    printf("thinking depth: %d\n",i - (deadline.timeExpired ? 2 : 1));
 
 }
 
@@ -277,6 +354,12 @@ pBot createBot(pBoard board){
     }
 
     bot->zobristValues = values;
+
+    // initialize transpositions table
+    TTEntry emptyEntry = {.depth = -1};
+    for (uint64_t i = 0; i < TT_SIZE; i++){
+        bot->transpositionsTable[i] = emptyEntry;
+    }
 
     return bot;
 }

@@ -82,6 +82,18 @@ void unmakeMove(pBoard board, Move *move){
 
 }
 
+bool sameMove(Move *move1, Move *move2){
+    
+    if (move1->moveType == NULL_MOVE || move2->moveType == NULL_MOVE){
+        return move1->moveType == move2->moveType;
+    }
+
+    if (move1->moveType == MOVEMENT && move2->moveType == MOVEMENT){
+        return move1->b2 == move2->b2;
+    }
+    return move1->b1 == move2->b1;
+}
+
 void printBoard(pBoard board){
     char buffer[1000];
     int j = 0;

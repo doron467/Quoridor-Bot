@@ -59,6 +59,7 @@ pBoard initializeBoard();
 void printBoard(pBoard board);
 bool isGameOver(pBoard board);
 void printMove(Move *move);
+bool sameMove(Move *move1, Move *move2);
 
 /*
 makes a move on the board.
