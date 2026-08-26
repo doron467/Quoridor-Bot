@@ -1,6 +1,10 @@
 #define THINKING_TIME_LIMIT 5 // how long (in seconds) is the agent allowed to think per turn
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
 
+// do not change
+#define HORIZONTAL_ZOBRIST_INDEX 0
+#define VERTICAL_ZOBRIST_INDEX 1
+
 #include "board.h"
 #include <stdlib.h>
 
@@ -15,4 +19,39 @@ typedef struct _ScoredMove {
     int score;
 } ScoredMove;
 
-void getBestMove(pBoard board,Move *buffer);
+typedef struct _ZobristValues {
+    uint64_t wallHash[2][64]; // 0 index for horizontals, 1 for verticals
+    uint64_t playerHash[2][81];
+    uint64_t wallCountHash[2][11];
+    uint64_t turnHash[2];
+} ZobristValues;
+
+typedef struct _Bot {
+    pBoard board;
+    ZobristValues *zobristValues;
+    uint64_t boardHash;
+} Bot;
+
+typedef Bot *pBot;
+
+/*
+creates a bot with a given board pointer.
+the bot initializes data it needs like zobrist values for hashing
+*/
+pBot createBot(pBoard board);
+
+// frees the bot from memory
+void destroyBot(pBot bot);
+
+/*
+updates the bot's board hash incrementally with a given move.
+works both for making and unmaking a move.
+this function should be called BEFORE MAKING a move, and AFTER UNMAKING a move.
+*/
+void updateHash(pBot bot, Move *move);
+
+// calculates the hash for the board from scratch
+void calculateBoardHash(pBot bot);
+
+// writes the bot's best move into the move buffer
+void getBestMove(pBot bot,Move *buffer);

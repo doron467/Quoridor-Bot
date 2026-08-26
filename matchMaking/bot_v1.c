@@ -7,12 +7,13 @@
 int main(void)
 {
     Board board;
+    pBot bot = createBot(&board);
 
     while (readBoardFEN(&board)) {
 
         Move move;
 
-        getBestMove(&board, &move);
+        getBestMove(bot, &move);
 
         printf(
             "%d %d %d\n",

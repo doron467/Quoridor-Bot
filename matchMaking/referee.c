@@ -34,7 +34,10 @@ int main(void)
             int winner =
                 board.p1pos / 9 == 8 ? 1 : 2;
 
-            printf("WIN %d\n", winner);
+            int bfs1 = bfs(board.hWalls,board.vWalls,board.p1pos,0);
+            int bfs2 = bfs(board.hWalls,board.vWalls,board.p2pos,8);
+
+            printf("WIN %d DIFFERENCE %d\n", winner,bfs1 - bfs2);
 
         } else {
 

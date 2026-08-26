@@ -1,5 +1,6 @@
 #include "board.h"
 #include "bot.h"
+#include "matchMaking/protocols.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -15,6 +16,7 @@ int main(int argc, char **argv){
 
     //printf("size: %lu\n",sizeof(Board));
     pBoard board = initializeBoard();
+    pBot bot = createBot(board);
     uint8_t lastTurn = 2;
     while (1){
 
@@ -28,12 +30,12 @@ int main(int argc, char **argv){
         char action = getc(stdin);
         if (action == '\n'){continue;}
 
-        if (action == 'i' || action == 'r'){
+        if (action == 'i' || action == 'r' || action == 'd'){
 
             if (action == 'i'){
                 
                 Move bestMove;
-                getBestMove(board,&bestMove);
+                getBestMove(bot,&bestMove);
                 printf("bot's move: ");
                 printMove(&bestMove);
 
@@ -45,6 +47,9 @@ int main(int argc, char **argv){
                     printf("no moves to unmake\n");
                 }
 
+            } else if (action == 'd'){
+                printf("board state: ");
+                printBoardFEN(board);
             }
 
             CLEAR_BUFFER();
@@ -106,6 +111,7 @@ int main(int argc, char **argv){
 
     }
 
+    destroyBot(bot);
     free(board);
 
     return 0;

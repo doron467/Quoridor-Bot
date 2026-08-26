@@ -1,10 +1,10 @@
 all: Quoridor matchMaking/Referee matchMaking/Bot
 
-Quoridor: main.o board.o bot.o
-	gcc main.o board.o bot.o -o Quoridor
+Quoridor: engine.o board.o bot.o
+	gcc engine.o board.o bot.o matchMaking/protocols.o -o Quoridor
 
-main.o: main.c board.h bot.h
-	gcc -O2 -c main.c -o main.o
+engine.o: engine.c board.h bot.h
+	gcc -O2 -c engine.c -o engine.o
 
 board.o: board.c board.h
 	gcc -O2 -c board.c -o board.o

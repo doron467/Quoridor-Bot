@@ -5,7 +5,7 @@
 
 pBoard initializeBoard(){
 
-    pBoard gameBoard = malloc(sizeof(Board));
+    pBoard gameBoard = (pBoard) malloc(sizeof(Board));
     if (gameBoard == NULL){
         printf("gameboard malloc failed\n");
         exit(1);
