@@ -42,7 +42,7 @@ void tryMove(pBot bot,Move *move,Move *bestMove,int depth,int *alpha,int *beta,D
     unmakeMove(bot->board,move);
     updateHash(bot,move);
 
-    //assert(originalHash == bot->boardHash);
+    assert(originalHash == bot->boardHash);
 
     if (score > *alpha){
         *alpha = score;
@@ -63,11 +63,22 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
             return 0;
         }
     }
-
+    
     // tt lookup
     TTEntry *entry = &bot->transpositionsTable[bot->boardHash & (TT_SIZE - 1)];
     Move ttMove = {.moveType = NULL_MOVE};
     Move bestMove = {.moveType = NULL_MOVE};
+
+    // debugging
+    bot->ttStores++;
+    if (entry->key == bot->boardHash && entry->depth >= depth){
+        bot->ttHits++;
+    }
+    if (entry->depth != -1 && entry->key != bot->boardHash){
+        bot->ttCutoffs++;
+    }
+    
+
     if (entry->key == bot->boardHash && entry->depth >= depth) {
 
         if (entry->flag == TT_EXACT){
@@ -82,7 +93,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
                 alpha = entry->score;
             }
         } else if (entry->flag == TT_UPPER_BOUND){
-            if (entry->score <= alpha){
+            if (entry->score < alpha){
                 return entry->score;
             }
             if (entry->score < beta){
@@ -175,11 +186,14 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
         flag = TT_EXACT;
     }
 
-    entry->key = bot->boardHash;
-    entry->flag = flag;
-    entry->depth = depth;
-    entry->score = alpha;
-    entry->bestMove = bestMove;
+    if (entry->depth <= depth || entry->key == bot->boardHash){
+        entry->key = bot->boardHash;
+        entry->flag = flag;
+        entry->depth = depth;
+        entry->score = alpha;
+        entry->bestMove = bestMove;
+    }
+    
 
 
     return alpha;
@@ -216,7 +230,7 @@ void doIteration(pBot bot,int depth,ScoredMove *legalMoves,size_t movesCount, De
         unmakeMove(bot->board,&currentMove);
         updateHash(bot,&currentMove);
 
-        //assert(originalHash == bot->boardHash);
+        assert(originalHash == bot->boardHash);
 
         if (deadline->timeExpired){
             return;
@@ -233,6 +247,11 @@ void doIteration(pBot bot,int depth,ScoredMove *legalMoves,size_t movesCount, De
 void getBestMove(pBot bot,Move *move){
 
     calculateBoardHash(bot); // calculate the hash for the current position
+
+    // debugging info
+    bot->ttCutoffs = 0;
+    bot->ttHits = 0;
+    bot->ttStores = 0;
 
     pBoard board = bot->board;
 
@@ -255,7 +274,7 @@ void getBestMove(pBot bot,Move *move){
 
     
     int score,i;
-    for (i = 2; !deadline.timeExpired && i <= 6; i++){
+    for (i = 2; !deadline.timeExpired && i <= 7; i++){
         //score = negamax(board,i,move,-BIGGER_INF,BIGGER_INF,&deadline);
         doIteration(bot,i,scoredMoves,legalMovesLength,&deadline);
 
@@ -265,8 +284,15 @@ void getBestMove(pBot bot,Move *move){
         }
     }
 
+    double time = (clock() - start) / (double) CLOCKS_PER_SEC;
+
+    printf("stores: %ld\nhits: %ld\ncutoffs: %ld\n",bot->ttStores,bot->ttHits,bot->ttCutoffs);
+    printf("hit ratio: %f%%\n",bot->ttHits / (double) bot->ttStores * 100);
+    printf("cutoff ratio: %f%%\n",bot->ttCutoffs / (double) bot->ttStores * 100);
+
     printf("evaluation: %d\n",score);
     printf("thinking depth: %d\n",i - (deadline.timeExpired ? 2 : 1));
+    printf("thinking time: %f\n",time);
 
 }
 

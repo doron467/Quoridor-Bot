@@ -178,7 +178,7 @@ void printBoard(pBoard board){
     printf("turn: p%d\n",board->turn);
 }
 
-int8_t directionInBounds(int8_t pos, Direction dir){
+int8_t moveDirection(int8_t pos, Direction dir){
     switch (dir){
         case LEFT:
             if (CAN_LEFT(pos)){
@@ -212,7 +212,7 @@ bool hasWall(uint64_t walls,int row,int column){
 }
 
 bool isBlocked(uint64_t hWalls,uint64_t vWalls,int8_t startPos,int row,int column, Direction dir){
-    if (directionInBounds(startPos,dir) != -1){
+    if (moveDirection(startPos,dir) != -1){
         
         if (dir == LEFT){
             if (row > 0){
@@ -454,6 +454,162 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
 
     return -1;
 }
+
+// typedef struct _NodeInfo {
+//     uint8_t gCost;
+//     uint8_t hCost;
+//     uint8_t index;
+// } NodeInfo;
+
+// #define PARENT_NODE(i) (((i) - 1) >> 1)
+// #define LEFT_CHILD(i) (((i) << 1) + 1)
+// #define RIGHT_CHILD(i) (((i) << 1) + 2)
+
+// int compareCosts(NodeInfo *node1,NodeInfo *node2){
+//     int fCost1 = node1->gCost + node1->hCost;
+//     int fCost2 = node2->gCost + node2->hCost;
+//     if (fCost1 > fCost2){
+//         return 1;
+//     }
+//     if (fCost1 < fCost2){
+//         return -1;
+//     }
+//     if (node1->hCost > node2->hCost){
+//         return 1;
+//     }
+//     if (node1->hCost < node2->hCost){
+//         return -1;
+//     }
+
+//     return 0;
+// }
+
+// void heapDown(int8_t *open, size_t openLength, NodeInfo *nodeInfos,int currentIndex){
+//     while (true){
+//         NodeInfo *currentInfo = &nodeInfos[open[currentIndex]];
+//         NodeInfo *minNode = currentInfo;
+//         int minIndex = currentIndex;
+
+//         int leftIndex = LEFT_CHILD(currentIndex);
+//         int rightIndex = leftIndex + 1;
+//         if (leftIndex < openLength){
+//             NodeInfo *leftInfo = &nodeInfos[open[leftIndex]];
+//             if (compareCosts(minNode,leftInfo) > 0){
+//                 minIndex = leftIndex;
+//                 minNode = leftInfo;
+//             }
+//         }
+//         if (rightIndex < openLength){
+//             NodeInfo *rightInfo = &nodeInfos[open[rightIndex]];
+//             if (compareCosts(minNode,rightInfo) > 0){
+//                 minIndex = rightIndex;
+//                 minNode = rightInfo;
+//             }
+//         }
+
+//         if (minIndex == currentIndex){
+//             break;
+//         }
+
+//         currentInfo->index = minIndex;
+//         minNode->index = currentIndex;
+
+//         int8_t temp = open[currentIndex];
+//         open[currentIndex] = open[minIndex];
+//         open[minIndex] = temp;
+//         currentIndex = minIndex;
+//     }
+    
+// }
+
+// void heapUp(int8_t *open,size_t openLength, NodeInfo *nodeInfos,int currentIndex){
+//     while (currentIndex > 0){
+//         int parentIndex = PARENT_NODE(currentIndex);
+//         NodeInfo *currentInfo = &nodeInfos[open[currentIndex]];
+//         NodeInfo *parentNode = &nodeInfos[open[parentIndex]];
+//         if (compareCosts(currentInfo,parentNode) < 0){
+//             currentInfo->index = parentIndex;
+//             parentNode->index = currentIndex;
+
+//             int8_t temp = open[currentIndex];
+//             open[currentIndex] = open[parentIndex];
+//             open[parentIndex] = temp;
+//             currentIndex = parentIndex;
+//         } else {
+//             break;
+//         }
+//     }
+// }
+
+// int aStar(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
+
+//     Direction directions[] = {LEFT,RIGHT,UP,DOWN};
+//     const uint8_t OPEN = 1;
+//     const uint8_t CLOSED = 2;
+
+//     uint8_t state[81] = {0};
+//     int8_t open[81] = {start};
+//     size_t openLength = 1;
+
+//     NodeInfo nodeInfos[81];
+//     nodeInfos[start].gCost = 0;
+//     nodeInfos[start].hCost = abs(rankTarget - start / 9);
+//     nodeInfos[start].index = 0;
+
+//     int targetStart = rankTarget * 9;
+//     int targetEnd = (rankTarget + 1) * 9;
+
+//     while (openLength > 0){
+//         int8_t current = open[0];
+//         //printf("visiting: %d\n",current);
+//         if (--openLength > 0){
+//             open[0] = open[openLength];
+//             nodeInfos[open[0]].index = 0;
+//             heapDown(open,openLength,nodeInfos,0);
+//         }
+
+//         state[current] = CLOSED;
+
+//         if (current >= targetStart && current < targetEnd){
+//             return nodeInfos[current].gCost;
+//         }
+
+//         int row = current / 9;
+//         int column = current % 9;
+//         for (size_t i = 0; i < 4; i++){
+//             Direction dir = directions[i];
+//             int8_t next = moveDirection(current,dir);
+//             if (next == -1){
+//                 continue;
+//             }
+//             if (state[next] == CLOSED || isBlocked(hWalls,vWalls,current,row,column,dir)){
+//                 continue;
+//             }
+            
+//             uint8_t gCost = nodeInfos[current].gCost + 1;
+
+//             NodeInfo *nextNode = &nodeInfos[next];
+//             if (state[next] != OPEN){
+//                 state[next] = OPEN;
+//                 nextNode->gCost = gCost;
+
+//                 int nextRow = row;
+//                 if (dir == UP){nextRow--;}else if(dir == DOWN){nextRow++;}
+//                 uint8_t hCost = abs(rankTarget - nextRow);
+//                 nextNode->hCost = hCost;
+
+//                 nextNode->index = openLength;
+//                 open[openLength] = next;
+//                 heapUp(open,++openLength,nodeInfos,nextNode->index);
+//             } else if (gCost < nextNode->gCost){
+//                 nextNode->gCost = gCost;
+//                 heapUp(open,openLength,nodeInfos,nextNode->index);
+//             }
+//         }
+//     }
+
+//     return -1;
+// }
 
 bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
 

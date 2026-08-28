@@ -77,6 +77,7 @@ void unmakeMove(pBoard board, Move *move);
 
 // returns -1 if no path found, otherwise returns length of the path
 int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget);
+int aStar(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget);
 
 // returns if the placement succeeded or not
 bool canPlaceWall(pBoard board,int8_t position,bool horizontal);

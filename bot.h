@@ -1,4 +1,4 @@
-#define THINKING_TIME_LIMIT 5 // how long (in seconds) is the agent allowed to think per turn
+#define THINKING_TIME_LIMIT 300 // how long (in seconds) is the agent allowed to think per turn
 #define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
 
@@ -8,6 +8,7 @@
 
 #include "board.h"
 #include <stdlib.h>
+#include <time.h>
 
 typedef struct _Deadline {
     clock_t deadline; // clock deadline for the search
@@ -46,6 +47,10 @@ typedef struct _Bot {
     ZobristValues *zobristValues;
     uint64_t boardHash;
     TTEntry transpositionsTable[TT_SIZE];
+
+    uint64_t ttHits;
+    uint64_t ttStores;
+    uint64_t ttCutoffs;
 } Bot;
 
 typedef Bot *pBot;
