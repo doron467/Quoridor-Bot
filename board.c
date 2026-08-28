@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include "board.h"
 
-pBoard initializeBoard(){
+pBoard initializeBoard(uint8_t turn){
 
     pBoard gameBoard = (pBoard) malloc(sizeof(Board));
     if (gameBoard == NULL){
@@ -17,9 +17,12 @@ pBoard initializeBoard(){
     gameBoard->p2wc = INITIAL_WALL_COUNT;
     gameBoard->hWalls = 0;
     gameBoard->vWalls = 0;
-    gameBoard->turn = 1;
+    gameBoard->turn = turn;
 
-    gameBoard->updated = false;
+    //gameBoard->pathInfo = malloc(sizeof(PathInfo)); // temporary
+    gameBoard->pathInfo = NULL;
+    gameBoard->bfsCalls = 0;
+    //gameBoard->pathInfo->updated = false;
     return gameBoard;
 }
 
@@ -43,10 +46,10 @@ void makeMove(pBoard board,Move *move){
     if (move->moveType == MOVEMENT){
         int8_t target = (int8_t) move->b2;
         if (board->turn == 1){board->p1pos = target;} else {board->p2pos = target;}
-        board->updated = false;
+        board->pathInfo->updated = false;
     } else {
 
-        board->updated = true;
+        board->pathInfo->updated = true;
         if (move->moveType == HORIZONTAL){
             board->hWalls |= UINT64_C(1) << move->b1;
         } else {
@@ -63,7 +66,7 @@ void makeMove(pBoard board,Move *move){
 void unmakeMove(pBoard board, Move *move){
 
     SWITCH_TURNS(board);
-    board->updated = false;
+    //board->pathInfo->updated = false;
 
     if (move->moveType == MOVEMENT){
         int8_t target = (int8_t) move->b1;
@@ -92,6 +95,18 @@ bool sameMove(Move *move1, Move *move2){
         return move1->b2 == move2->b2;
     }
     return move1->b1 == move2->b1;
+}
+
+void copyPathInfo(PathInfo *original,PathInfo *copy,uint32_t *path1,uint32_t *path2){
+    *copy = *original;
+    copy->path1 = path1;
+    copy->path2 = path2;
+
+    for (int i = 0; i < TILES_HASHSET_LENGTH; i++){
+        path1[i] = original->path1[i];
+        path2[i] = original->path2[i];
+    }
+
 }
 
 void printBoard(pBoard board){
@@ -268,6 +283,7 @@ bool isBlocked(uint64_t hWalls,uint64_t vWalls,int8_t startPos,int row,int colum
 }
 
 size_t getPlayerMoves(pBoard board,int8_t *buffer){
+
     int8_t *bufferCopy = buffer;
     int8_t moverPos, otherPos;
     if (board->turn == 1){
@@ -358,35 +374,35 @@ size_t getPlayerMoves(pBoard board,int8_t *buffer){
     return buffer - bufferCopy;
 }
 
-bool isQueued(int8_t pos, const uint32_t *queued)
+bool inSet(int8_t pos, const uint32_t *hashset)
 {
     if (pos < 32) {
-        return (queued[0] >> pos) & 1;
+        return (hashset[0] >> pos) & 1;
     } else if (pos < 64) {
-        return (queued[1] >> (pos - 32)) & 1;
+        return (hashset[1] >> (pos - 32)) & 1;
     } else {
-        return (queued[2] >> (pos - 64)) & 1;
+        return (hashset[2] >> (pos - 64)) & 1;
     }
 }
 
-void addToQueued(int8_t pos, uint32_t *queued)
+void addToSet(int8_t pos, uint32_t *hashset)
 {
     if (pos < 32) {
-        queued[0] |= UINT32_C(1) << pos;
+        hashset[0] |= UINT32_C(1) << pos;
     } else if (pos < 64) {
-        queued[1] |= UINT32_C(1) << (pos - 32);
+        hashset[1] |= UINT32_C(1) << (pos - 32);
     } else {
-        queued[2] |= UINT32_C(1) << (pos - 64);
+        hashset[2] |= UINT32_C(1) << (pos - 64);
     }
 }
 
-int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
+int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pathStorage){
     uint8_t queue[BOARD_SIZE];
     uint32_t queued[3] = {0};
     int8_t parent[81];
 
     queue[0] = start;
-    addToQueued(start,queued);
+    addToSet(start,queued);
 
     size_t head = 0;
     size_t tail = 1;
@@ -400,48 +416,53 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
             int8_t pos = queue[head++];
             if (pos >= rankTarget * 9 && pos < (rankTarget + 1) * 9){
 
-                // print path
-                /*
-                int8_t temp = pos;
-                while (temp != start){
-                    printf("%d <-- ",temp);
-                    temp = parent[temp];
+                // write path to storage hashset
+                if (pathStorage != NULL){
+                    for (int i = 0; i < TILES_HASHSET_LENGTH; i++){
+                        pathStorage[i] = 0;
+                    }
+
+                    int8_t temp = pos;
+                    while (temp != start){
+                        addToSet(temp,pathStorage);
+                        temp = parent[temp];
+                    }
+                    addToSet(temp,pathStorage);
                 }
-                printf("%d\n",temp);
-                */
+                
                 return depth;
             }
 
             int row = pos / 9;
             int column = pos % 9;
 
-            if (!isQueued(MOVE_LEFT(pos),queued)){
+            if (!inSet(MOVE_LEFT(pos),queued)){
                 if (!isBlocked(hWalls,vWalls,pos,row,column,LEFT)){
-                    addToQueued(MOVE_LEFT(pos),queued);
+                    addToSet(MOVE_LEFT(pos),queued);
                     queue[tail++] = MOVE_LEFT(pos);
                     parent[MOVE_LEFT(pos)] = pos;
                 }
             }
 
-            if (!isQueued(MOVE_RIGHT(pos),queued)){
+            if (!inSet(MOVE_RIGHT(pos),queued)){
                 if (!isBlocked(hWalls,vWalls,pos,row,column,RIGHT)){
-                    addToQueued(MOVE_RIGHT(pos),queued);
+                    addToSet(MOVE_RIGHT(pos),queued);
                     queue[tail++] = MOVE_RIGHT(pos);
                     parent[MOVE_RIGHT(pos)] = pos;
                 }
             }
 
-            if (!isQueued(MOVE_UP(pos),queued)){
+            if (!inSet(MOVE_UP(pos),queued)){
                 if (!isBlocked(hWalls,vWalls,pos,row,column,UP)){
-                    addToQueued(MOVE_UP(pos),queued);
+                    addToSet(MOVE_UP(pos),queued);
                     queue[tail++] = MOVE_UP(pos);
                     parent[MOVE_UP(pos)] = pos;
                 }
             }
 
-            if (CAN_DOWN(pos) && !isQueued(MOVE_DOWN(pos),queued)){
+            if (CAN_DOWN(pos) && !inSet(MOVE_DOWN(pos),queued)){
                 if (!isBlocked(hWalls,vWalls,pos,row,column,DOWN)){
-                    addToQueued(MOVE_DOWN(pos),queued);
+                    addToSet(MOVE_DOWN(pos),queued);
                     queue[tail++] = MOVE_DOWN(pos);
                     parent[MOVE_DOWN(pos)] = pos;
                 }
@@ -455,163 +476,45 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
     return -1;
 }
 
-// typedef struct _NodeInfo {
-//     uint8_t gCost;
-//     uint8_t hCost;
-//     uint8_t index;
-// } NodeInfo;
+bool wallTouchingPath(int32_t *path,int row,int column,bool horizontal){
+    int8_t topLeft = row * 9 + column;
+    int8_t topRight = MOVE_RIGHT(topLeft);
+    if (horizontal){
 
-// #define PARENT_NODE(i) (((i) - 1) >> 1)
-// #define LEFT_CHILD(i) (((i) << 1) + 1)
-// #define RIGHT_CHILD(i) (((i) << 1) + 2)
+        if (inSet(topLeft,path) && inSet(MOVE_DOWN(topLeft),path)){
+            return true;
+        }
 
-// int compareCosts(NodeInfo *node1,NodeInfo *node2){
-//     int fCost1 = node1->gCost + node1->hCost;
-//     int fCost2 = node2->gCost + node2->hCost;
-//     if (fCost1 > fCost2){
-//         return 1;
-//     }
-//     if (fCost1 < fCost2){
-//         return -1;
-//     }
-//     if (node1->hCost > node2->hCost){
-//         return 1;
-//     }
-//     if (node1->hCost < node2->hCost){
-//         return -1;
-//     }
+        if (inSet(topRight,path) && inSet(MOVE_DOWN(topRight),path)){
+            return true;
+        }
 
-//     return 0;
-// }
 
-// void heapDown(int8_t *open, size_t openLength, NodeInfo *nodeInfos,int currentIndex){
-//     while (true){
-//         NodeInfo *currentInfo = &nodeInfos[open[currentIndex]];
-//         NodeInfo *minNode = currentInfo;
-//         int minIndex = currentIndex;
+    } else {
 
-//         int leftIndex = LEFT_CHILD(currentIndex);
-//         int rightIndex = leftIndex + 1;
-//         if (leftIndex < openLength){
-//             NodeInfo *leftInfo = &nodeInfos[open[leftIndex]];
-//             if (compareCosts(minNode,leftInfo) > 0){
-//                 minIndex = leftIndex;
-//                 minNode = leftInfo;
-//             }
-//         }
-//         if (rightIndex < openLength){
-//             NodeInfo *rightInfo = &nodeInfos[open[rightIndex]];
-//             if (compareCosts(minNode,rightInfo) > 0){
-//                 minIndex = rightIndex;
-//                 minNode = rightInfo;
-//             }
-//         }
+        if (inSet(topLeft,path) && inSet(topRight,path)){
+            return true;
+        }
 
-//         if (minIndex == currentIndex){
-//             break;
-//         }
+        if (inSet(MOVE_DOWN(topLeft),path) && inSet(MOVE_DOWN(topRight),path)){
+            return true;
+        }
 
-//         currentInfo->index = minIndex;
-//         minNode->index = currentIndex;
+    }
 
-//         int8_t temp = open[currentIndex];
-//         open[currentIndex] = open[minIndex];
-//         open[minIndex] = temp;
-//         currentIndex = minIndex;
-//     }
-    
-// }
-
-// void heapUp(int8_t *open,size_t openLength, NodeInfo *nodeInfos,int currentIndex){
-//     while (currentIndex > 0){
-//         int parentIndex = PARENT_NODE(currentIndex);
-//         NodeInfo *currentInfo = &nodeInfos[open[currentIndex]];
-//         NodeInfo *parentNode = &nodeInfos[open[parentIndex]];
-//         if (compareCosts(currentInfo,parentNode) < 0){
-//             currentInfo->index = parentIndex;
-//             parentNode->index = currentIndex;
-
-//             int8_t temp = open[currentIndex];
-//             open[currentIndex] = open[parentIndex];
-//             open[parentIndex] = temp;
-//             currentIndex = parentIndex;
-//         } else {
-//             break;
-//         }
-//     }
-// }
-
-// int aStar(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget){
-
-//     Direction directions[] = {LEFT,RIGHT,UP,DOWN};
-//     const uint8_t OPEN = 1;
-//     const uint8_t CLOSED = 2;
-
-//     uint8_t state[81] = {0};
-//     int8_t open[81] = {start};
-//     size_t openLength = 1;
-
-//     NodeInfo nodeInfos[81];
-//     nodeInfos[start].gCost = 0;
-//     nodeInfos[start].hCost = abs(rankTarget - start / 9);
-//     nodeInfos[start].index = 0;
-
-//     int targetStart = rankTarget * 9;
-//     int targetEnd = (rankTarget + 1) * 9;
-
-//     while (openLength > 0){
-//         int8_t current = open[0];
-//         //printf("visiting: %d\n",current);
-//         if (--openLength > 0){
-//             open[0] = open[openLength];
-//             nodeInfos[open[0]].index = 0;
-//             heapDown(open,openLength,nodeInfos,0);
-//         }
-
-//         state[current] = CLOSED;
-
-//         if (current >= targetStart && current < targetEnd){
-//             return nodeInfos[current].gCost;
-//         }
-
-//         int row = current / 9;
-//         int column = current % 9;
-//         for (size_t i = 0; i < 4; i++){
-//             Direction dir = directions[i];
-//             int8_t next = moveDirection(current,dir);
-//             if (next == -1){
-//                 continue;
-//             }
-//             if (state[next] == CLOSED || isBlocked(hWalls,vWalls,current,row,column,dir)){
-//                 continue;
-//             }
-            
-//             uint8_t gCost = nodeInfos[current].gCost + 1;
-
-//             NodeInfo *nextNode = &nodeInfos[next];
-//             if (state[next] != OPEN){
-//                 state[next] = OPEN;
-//                 nextNode->gCost = gCost;
-
-//                 int nextRow = row;
-//                 if (dir == UP){nextRow--;}else if(dir == DOWN){nextRow++;}
-//                 uint8_t hCost = abs(rankTarget - nextRow);
-//                 nextNode->hCost = hCost;
-
-//                 nextNode->index = openLength;
-//                 open[openLength] = next;
-//                 heapUp(open,++openLength,nodeInfos,nextNode->index);
-//             } else if (gCost < nextNode->gCost){
-//                 nextNode->gCost = gCost;
-//                 heapUp(open,openLength,nodeInfos,nextNode->index);
-//             }
-//         }
-//     }
-
-//     return -1;
-// }
+    return false;
+}
 
 bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
+
+    if (board->pathInfo == NULL){
+        printf("error: can place wall called with null path info\n");
+        exit(1);
+    }
+
+    if (!board->pathInfo->updated){
+        //printf("warning: path not updated\n");
+    }
 
     if ((board->turn == 1 ? board->p1wc : board->p2wc) <= 0){
         return false; // out of walls to place
@@ -629,14 +532,17 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
         return false; // walls cannot cross
     }
 
+    int row = position >> 3; // (position / 8)
+    int column = position & 0b111; // (position % 8)
+
     if (horizontal){
         hUpdated |= mask;
 
-        if ((position % 8 != 0) && (board->hWalls & (mask >> 1))){
+        if ((column != 0) && (board->hWalls & (mask >> 1))){
             return false; // wall already placed to the left
         }
 
-        if ((position % 8 != 7) && (board->hWalls & (mask << 1))){
+        if ((column != 7) && (board->hWalls & (mask << 1))){
             return false; // wall already placed to the right
         }
 
@@ -651,19 +557,33 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
             return false; // wall already placed below
         }
     }
+
+    uint32_t *path1Set = board->pathInfo->path1;
+    uint32_t *path2Set = board->pathInfo->path2;
+    bool path1Collision = !board->pathInfo->updated || wallTouchingPath(path1Set,row,column,horizontal);
+    bool path2Collision = !board->pathInfo->updated || wallTouchingPath(path2Set,row,column,horizontal);
     
-    int depth1 = bfs(hUpdated,vUpdated,board->p1pos,0);
-    if (depth1 == -1){
-        return false; // can't trap player 1
+    int depth1 = board->pathInfo->d1;
+    if (path1Collision){
+        board->bfsCalls++;
+        depth1 = bfs(hUpdated,vUpdated,board->p1pos,0,board->pathInfo->path1);
+        if (depth1 == -1){
+            return false; // can't trap player 1
+        }
     }
-
-    int depth2 = bfs(hUpdated,vUpdated,board->p2pos,8);
-    if (depth2 == -1){
-        return false; // can't trap player 2
+    
+    int depth2 = board->pathInfo->d2;
+    if (path2Collision){
+        board->bfsCalls++;
+        depth2 = bfs(hUpdated,vUpdated,board->p2pos,8,board->pathInfo->path2);
+        if (depth2 == -1){
+            return false; // can't trap player 2
+        }
     }
+    
 
-    board->d1 = depth1;
-    board->d2 = depth2;
+    board->pathInfo->d1 = depth1;
+    board->pathInfo->d2 = depth2;
 
     return true;
 }

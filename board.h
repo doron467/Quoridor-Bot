@@ -3,6 +3,7 @@
 
 // DO NOT CHANGE
 #define BOARD_SIZE 81
+#define TILES_HASHSET_LENGTH 3
 
 // can maybe change
 #define P1_START_POS 76
@@ -28,18 +29,25 @@
 typedef enum _Direction {LEFT,RIGHT,UP,DOWN} Direction;
 typedef enum _MoveType {MOVEMENT,HORIZONTAL,VERTICAL,NULL_MOVE} MoveType;
 
+typedef struct _PathInfo {
+    bool updated; // if updated is set to false, d1 and d2 shouldn't be trusted
+    uint8_t d1; // length of shortest path for p1 to his goal
+    uint8_t d2; // length of shortest path for p2 to his goal
+    uint32_t *path1; // hashset containing the squares belonging to the shortest path for player1 to goal
+    uint32_t *path2; // hashset containing the squares belonging to the shortest path for player2 to goal
+} PathInfo;
+
 typedef struct _Board {
-    uint64_t hWalls; // hashmap for horizontal walls
-    uint64_t vWalls; // hashmap for vertical walls
+    uint64_t hWalls; // hashset for horizontal walls
+    uint64_t vWalls; // hashset for vertical walls
     uint8_t p1wc; // p1 wall count
     uint8_t p2wc; // p2 wall count
     int8_t p1pos; // 0 indexed from top left
     int8_t p2pos; // 0 indexed from top left
     uint8_t turn; // 1 if p1 turn, 2 if p2 turn
+    PathInfo *pathInfo;
 
-    bool updated; // if updated is set to false, d1 and d2 shouldn't be trusted
-    uint8_t d1; // length of shortest path for p1 to his goal
-    uint8_t d2; // length of shortest path for p2 to his goal
+    uint64_t bfsCalls; // debugging
 } Board;
 
 typedef Board *pBoard;
@@ -55,11 +63,12 @@ typedef struct _Move {
     int8_t b2;
 } Move;
 
-pBoard initializeBoard();
+pBoard initializeBoard(uint8_t turn);
 void printBoard(pBoard board);
 bool isGameOver(pBoard board);
 void printMove(Move *move);
 bool sameMove(Move *move1, Move *move2);
+void copyPathInfo(PathInfo *original,PathInfo *copy,uint32_t *path1,uint32_t *path2);
 
 /*
 makes a move on the board.
@@ -76,8 +85,8 @@ it's the responsibility of the caller to check if a move is legal or not before 
 void unmakeMove(pBoard board, Move *move);
 
 // returns -1 if no path found, otherwise returns length of the path
-int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget);
-int aStar(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget);
+// path storage is a hashset where the resulting path will be written
+int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pathStorage);
 
 // returns if the placement succeeded or not
 bool canPlaceWall(pBoard board,int8_t position,bool horizontal);

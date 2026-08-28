@@ -15,15 +15,19 @@ int main(int argc, char **argv){
     size_t nextMoveIndex = 0;
 
     //printf("size: %lu\n",sizeof(Board));
-    pBoard board = initializeBoard();
+    pBoard board = initializeBoard(argc > 1 ? argv[1][0] - '0' : 1);
     pBot bot = createBot(board);
-    uint8_t lastTurn = 2;
+    PathInfo pathInfo;
+    uint8_t lastTurn = 0;
     while (1){
 
         if (lastTurn != board->turn){
             printBoard(board);
             lastTurn = board->turn;
         }
+
+        pathInfo.updated = false;
+        board->pathInfo = &pathInfo;
 
         printf("enter next move: ");
 
