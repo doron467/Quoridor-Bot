@@ -33,21 +33,38 @@ int evaluate(pBoard board){
 
 int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline);
 
-void tryMove(pBot bot,Move *move,Move *bestMove,int depth,int *alpha,int *beta,Deadline *deadline){
+void tryMove(pBot bot,Move *move,Move *bestMove,int *bestScore,int depth,int *alpha,int *beta,Deadline *deadline){
     
     //uint64_t originalHash = bot->boardHash;
 
     updateHash(bot,move);
     makeMove(bot->board,move);
-    int score = -negamax(bot,depth-1,-*beta,-*alpha,deadline);
+
+    int score;
+    if (bestMove->moveType == NULL_MOVE){
+        score = -negamax(bot,depth-1,-*beta,-*alpha,deadline);
+    } else {
+        // do a null search first
+        score = -negamax(bot,depth-1,-*alpha - 1,-*alpha,deadline);
+        if (score > *alpha && score < *beta){
+            // score was good enough to beat the last candidate, but not good enough to beat beta
+            // need to perform a full search on it
+            score = -negamax(bot,depth-1,-*beta,-*alpha,deadline);
+        }
+    }
+
     unmakeMove(bot->board,move);
     updateHash(bot,move);
 
     //assert(originalHash == bot->boardHash);
 
+    if (score > *bestScore){
+        *bestScore = score;
+        *bestMove = *move;
+    }
+
     if (score > *alpha){
         *alpha = score;
-        *bestMove = *move;
     }
 }
 
@@ -69,9 +86,13 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
     TTEntry *entry = &bot->transpositionsTable[bot->boardHash & (TT_SIZE - 1)];
     Move ttMove = {.moveType = NULL_MOVE};
     Move bestMove = {.moveType = NULL_MOVE};
+    int bestScore = -BIGGER_INF;
 
     // debugging
     bot->ttStores++;
+    if (entry->key == bot->boardHash && entry->depth != -1){
+        bot->ttMatches++;
+    }
     if (entry->key == bot->boardHash && entry->depth >= depth){
         bot->ttHits++;
     }
@@ -106,24 +127,29 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
             return alpha;
         }
 
-        if (depth == 0 || isGameOver(board)){
-            return evaluate(board);
-        }
+        // if (depth == 0 || isGameOver(board)){
+        //     return evaluate(board);
+        // }
 
-        ttMove = entry->bestMove;
-        if (ttMove.moveType != NULL_MOVE){
-            // need to check ttMove before trying it
+        // ttMove = entry->bestMove;
+        // if (ttMove.moveType != NULL_MOVE){
+        //     // need to check ttMove before trying it
 
-            //printMove(&ttMove);
-            tryMove(bot,&ttMove,&bestMove,depth,&alpha,&beta,deadline);
-            if (deadline->timeExpired){return 0;}
-        }
+        //     //printMove(&ttMove);
+        //     tryMove(bot,&ttMove,&bestMove,depth,&alpha,&beta,deadline);
+        //     if (deadline->timeExpired){return 0;}
+        // }
         
 
     }
 
     if (depth == 0 || isGameOver(board)){
         return evaluate(board);
+    }
+
+    if (entry->key == bot->boardHash && entry->depth != -1){
+        tryMove(bot,&entry->bestMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
+        if (deadline->timeExpired){return 0;}
     }
 
     int8_t movementBuffer[10];
@@ -149,7 +175,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
         currentMove.b2 = movementBuffer[i];
         if (sameMove(&currentMove,&ttMove)){continue;}
 
-        tryMove(bot,&currentMove,&bestMove,depth,&alpha,&beta,deadline);
+        tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
         //if (alpha >= beta){return alpha;}
         if (deadline->timeExpired){return 0;}
     }
@@ -162,7 +188,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
 
         board->pathInfo = &pathInfoCopy;
         if (canPlaceWall(board,i,true)){
-            tryMove(bot,&currentMove,&bestMove,depth,&alpha,&beta,deadline);
+            tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
             //if (alpha >= beta){return alpha;}
             if (deadline->timeExpired){return 0;}
         }
@@ -175,7 +201,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
 
         board->pathInfo = &pathInfoCopy;
         if (canPlaceWall(board,i,false)){
-            tryMove(bot,&currentMove,&bestMove,depth,&alpha,&beta,deadline);
+            tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
             //if (alpha >= beta){return alpha;}
             if (deadline->timeExpired){return 0;}
         }
@@ -195,7 +221,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
         flag = TT_EXACT;
     }
 
-    if (entry->depth <= depth || entry->key == bot->boardHash){
+    if (entry->depth <= depth){
         entry->key = bot->boardHash;
         entry->flag = flag;
         entry->depth = depth;
@@ -242,7 +268,19 @@ void doIteration(pBot bot,int depth,ScoredMove *legalMoves,size_t movesCount, De
 
         updateHash(bot,&currentMove);
         makeMove(bot->board,&currentMove);
-        int score = -negamax(bot,depth - 1,-BIGGER_INF,-alpha,deadline);
+        //int score = -negamax(bot,depth - 1,-BIGGER_INF,-alpha,deadline);
+
+        int score;
+        if (i == 0){
+            score = -negamax(bot,depth-1,-BIGGER_INF,-alpha,deadline);
+        } else {
+            // do a null search first, only do a full if necessary
+            score = -negamax(bot,depth-1,-alpha - 1,-alpha,deadline);
+            if (score > alpha){
+                score = -negamax(bot,depth-1,-BIGGER_INF,-alpha,deadline);
+            }
+        }
+
         unmakeMove(bot->board,&currentMove);
         updateHash(bot,&currentMove);
 
@@ -268,6 +306,7 @@ void getBestMove(pBot bot,Move *move){
     bot->ttCutoffs = 0;
     bot->ttHits = 0;
     bot->ttStores = 0;
+    bot->ttMatches = 0;
     bot->board->bfsCalls = 0;
 
     pBoard board = bot->board;
@@ -298,7 +337,7 @@ void getBestMove(pBot bot,Move *move){
 
     
     int score,i;
-    for (i = 2; !deadline.timeExpired; i++){
+    for (i = 2; !deadline.timeExpired && i <= 7; i++){
         //score = negamax(board,i,move,-BIGGER_INF,BIGGER_INF,&deadline);
         board->pathInfo = &pathInfo;
         doIteration(bot,i,scoredMoves,legalMovesLength,&deadline);
@@ -313,6 +352,7 @@ void getBestMove(pBot bot,Move *move){
 
     printf("stores: %ld\nhits: %ld\ncutoffs: %ld\n",bot->ttStores,bot->ttHits,bot->ttCutoffs);
     printf("hit ratio: %f%%\n",bot->ttHits / (double) bot->ttStores * 100);
+    printf("match ratio: %f%%\n",bot->ttHits / (double) bot->ttMatches * 100);
     printf("cutoff ratio: %f%%\n",bot->ttCutoffs / (double) bot->ttStores * 100);
     printf("bfs calls: %lu\n",board->bfsCalls);
 

@@ -1,4 +1,4 @@
-#define THINKING_TIME_LIMIT 5 // how long (in seconds) is the agent allowed to think per turn
+#define THINKING_TIME_LIMIT 100 // how long (in seconds) is the agent allowed to think per turn
 #define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
 
@@ -49,6 +49,7 @@ typedef struct _Bot {
     TTEntry transpositionsTable[TT_SIZE];
 
     uint64_t ttHits;
+    uint64_t ttMatches;
     uint64_t ttStores;
     uint64_t ttCutoffs;
 } Bot;
