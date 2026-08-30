@@ -36,6 +36,9 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline);
 void tryMove(pBot bot,Move *move,Move *bestMove,int *bestScore,int depth,int *alpha,int *beta,Deadline *deadline){
     
     //uint64_t originalHash = bot->boardHash;
+    if (move->moveType == MOVEMENT){
+        move->b1 = bot->board->turn == 1 ? bot->board->p1pos : bot->board->p2pos;
+    }
 
     updateHash(bot,move);
     makeMove(bot->board,move);
@@ -203,6 +206,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
         if (sameMove(&currentMove,&killer0)){continue;}
         if (sameMove(&currentMove,&killer1)){continue;}
 
+        board->pathInfo = &pathInfoCopy;
         tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
 
         if (alpha >= beta){
