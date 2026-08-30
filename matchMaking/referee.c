@@ -20,7 +20,9 @@ int main(void)
             break;
         }
 
-        if (!isLegalMove(&board, &move)) {
+        int8_t movementBuffer[10];
+        getPlayerMoves(&board,movementBuffer);
+        if (!isLegalMove(&board, &move,movementBuffer)) {
 
             printf("ILLEGAL\n");
             fflush(stdout);

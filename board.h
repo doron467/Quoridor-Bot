@@ -78,7 +78,7 @@ it's the responsibility of the caller to check if a move is legal or not before 
 void makeMove(pBoard board,Move *move);
 
 /*
-unmakes a move on the board.
+unmakes a move on the board.   
 no safety checks are done, to keep the function fast.
 it's the responsibility of the caller to check if a move is legal or not before calling the function.
 */
@@ -105,6 +105,6 @@ note that the buffer here is a struct move, while in getPlayerMoves it's an int
 */
 size_t getLegalMoves(pBoard board,Move *movesBuffer);
 
-bool isLegalMove(pBoard board, Move *move);
+bool isLegalMove(pBoard board, Move *move,int8_t *movementBuffer);
 
 #endif

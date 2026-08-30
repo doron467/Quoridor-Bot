@@ -46,9 +46,22 @@ void tryMove(pBot bot,Move *move,Move *bestMove,int *bestScore,int depth,int *al
     } else {
         // do a null search first
         score = -negamax(bot,depth-1,-*alpha - 1,-*alpha,deadline);
+
+        // debug stuff
+        if (score <= *alpha){
+            bot->pvsFailLow++;
+        } else if (score >= *beta){
+            bot->pvsFailHigh++;
+        }
+
+        // if (*beta > *alpha + 1){
+        //     bot->wideWindows++;
+        // }
+
         if (score > *alpha && score < *beta){
             // score was good enough to beat the last candidate, but not good enough to beat beta
             // need to perform a full search on it
+            bot->pvsResearches++;
             score = -negamax(bot,depth-1,-*beta,-*alpha,deadline);
         }
     }
@@ -89,7 +102,7 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
     int bestScore = -BIGGER_INF;
 
     // debugging
-    bot->ttStores++;
+    bot->nodesVisited++;
     if (entry->key == bot->boardHash && entry->depth != -1){
         bot->ttMatches++;
     }
@@ -97,9 +110,11 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
         bot->ttHits++;
     }
     if (entry->depth != -1 && entry->key != bot->boardHash){
-        bot->ttCutoffs++;
+        bot->ttCollisions++;
     }
-    
+    if (beta - alpha > 1){
+        bot->wideWindows++;
+    }
 
     if (entry->key == bot->boardHash && entry->depth >= depth) {
 
@@ -127,33 +142,11 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
             return alpha;
         }
 
-        // if (depth == 0 || isGameOver(board)){
-        //     return evaluate(board);
-        // }
-
-        // ttMove = entry->bestMove;
-        // if (ttMove.moveType != NULL_MOVE){
-        //     // need to check ttMove before trying it
-
-        //     //printMove(&ttMove);
-        //     tryMove(bot,&ttMove,&bestMove,depth,&alpha,&beta,deadline);
-        //     if (deadline->timeExpired){return 0;}
-        // }
-        
-
     }
 
     if (depth == 0 || isGameOver(board)){
         return evaluate(board);
     }
-
-    if (entry->key == bot->boardHash && entry->depth != -1){
-        tryMove(bot,&entry->bestMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
-        if (deadline->timeExpired){return 0;}
-    }
-
-    int8_t movementBuffer[10];
-    Move currentMove;
 
     PathInfo pathInfoCopy;
     uint32_t path1[TILES_HASHSET_LENGTH];
@@ -161,22 +154,62 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
     copyPathInfo(bot->board->pathInfo,&pathInfoCopy,path1,path2);
     board->pathInfo = &pathInfoCopy;
 
-    // if (bestMove != NULL && bestMove->moveType != NULL_MOVE){
-    //     currentMove = *bestMove;
-    //     tryMove(board,&currentMove,depth,&alpha,&beta,bestMove,deadline);
-    //     if (deadline->timeExpired){return 0;}
-    // }
+    // try the transpositions table best move first
+    if (entry->key == bot->boardHash && entry->depth != -1){
+        ttMove = entry->bestMove;
+        tryMove(bot,&ttMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
+        if (deadline->timeExpired){return 0;}
+    }
+
+
+    int8_t movementBuffer[10];
+    getPlayerMoves(board,movementBuffer);
+
+    // try killer moves next
+    int ply = bot->currentDepth - depth;
+    Move killer0 = bot->killerMoves[ply][0];
+    Move killer1 = bot->killerMoves[ply][1];
+    board->pathInfo = &pathInfoCopy;
+    if (alpha < beta && isLegalMove(board,&killer0,movementBuffer)){
+        bot->killerAttempts++;
+        tryMove(bot,&killer0,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
+        if (deadline->timeExpired){return 0;}
+
+        if (alpha >= beta){
+            bot->killerCutoffs++;
+        }
+    }
+    board->pathInfo = &pathInfoCopy;
+    if (alpha < beta && isLegalMove(board,&killer1,movementBuffer)){
+        bot->killerAttempts++;
+        tryMove(bot,&killer1,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
+        if (deadline->timeExpired){return 0;}
+
+        if (alpha >= beta){
+            bot->killerCutoffs++;
+        }
+    }
+
+    
+    Move currentMove;
+
 
     // search movements
-    getPlayerMoves(board,movementBuffer);
     currentMove.moveType = MOVEMENT;
     currentMove.b1 = (board->turn == 1) ? board->p1pos : board->p2pos;
     for (int i = 0; movementBuffer[i] != -1 && alpha < beta; i++){
         currentMove.b2 = movementBuffer[i];
         if (sameMove(&currentMove,&ttMove)){continue;}
+        if (sameMove(&currentMove,&killer0)){continue;}
+        if (sameMove(&currentMove,&killer1)){continue;}
 
         tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
-        //if (alpha >= beta){return alpha;}
+
+        if (alpha >= beta){
+            bot->killerMoves[ply][1] = bot->killerMoves[ply][0];
+            bot->killerMoves[ply][0] = currentMove;
+        }
+
         if (deadline->timeExpired){return 0;}
     }
 
@@ -185,11 +218,18 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
     for (int8_t i = 0; i < 64 && alpha < beta; i++){
         currentMove.b1 = i;
         if (sameMove(&currentMove,&ttMove)){continue;}
+        if (sameMove(&currentMove,&killer0)){continue;}
+        if (sameMove(&currentMove,&killer1)){continue;}
 
         board->pathInfo = &pathInfoCopy;
         if (canPlaceWall(board,i,true)){
             tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
-            //if (alpha >= beta){return alpha;}
+
+            if (alpha >= beta){
+                bot->killerMoves[ply][1] = bot->killerMoves[ply][0];
+                bot->killerMoves[ply][0] = currentMove;
+            }
+
             if (deadline->timeExpired){return 0;}
         }
     }
@@ -198,11 +238,19 @@ int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline){
     for (int8_t i = 0; i < 64 && alpha < beta; i++){
         currentMove.b1 = i;
         if (sameMove(&currentMove,&ttMove)){continue;}
+        if (sameMove(&currentMove,&killer0)){continue;}
+        if (sameMove(&currentMove,&killer1)){continue;}
 
         board->pathInfo = &pathInfoCopy;
         if (canPlaceWall(board,i,false)){
             tryMove(bot,&currentMove,&bestMove,&bestScore,depth,&alpha,&beta,deadline);
             //if (alpha >= beta){return alpha;}
+
+            if (alpha >= beta){
+                bot->killerMoves[ply][1] = bot->killerMoves[ply][0];
+                bot->killerMoves[ply][0] = currentMove;
+            }
+
             if (deadline->timeExpired){return 0;}
         }
     }
@@ -253,10 +301,14 @@ void insertionSort(ScoredMove *scoredMoves, size_t movesCount)
 void doIteration(pBot bot,int depth,ScoredMove *legalMoves,size_t movesCount, Deadline *deadline){
 
     // loop over the legal moves and update their evaluation
+    bot->currentDepth = depth;
     int alpha = -BIGGER_INF;
     PathInfo *originalPathInfo = bot->board->pathInfo;
+    printf("depth: %d\n",depth);
     for (size_t i = 0; i < movesCount; i++){
         Move currentMove = legalMoves[i].move;
+        //printf("evaluating move: ");
+        //printMove(&currentMove);
 
         //uint64_t originalHash = bot->boardHash;
 
@@ -303,10 +355,16 @@ void getBestMove(pBot bot,Move *move){
     calculateBoardHash(bot); // calculate the hash for the current position
 
     // debugging info
-    bot->ttCutoffs = 0;
+    bot->killerAttempts = 0;
+    bot->killerCutoffs = 0;
+    bot->ttCollisions = 0;
     bot->ttHits = 0;
-    bot->ttStores = 0;
+    bot->nodesVisited = 0;
     bot->ttMatches = 0;
+    bot->pvsResearches = 0;
+    bot->pvsFailHigh = 0;
+    bot->pvsFailLow = 0;
+    bot->wideWindows = 0;
     bot->board->bfsCalls = 0;
 
     pBoard board = bot->board;
@@ -318,6 +376,14 @@ void getBestMove(pBot bot,Move *move){
     pathInfo.path2 = path2;
     board->pathInfo = &pathInfo;
 
+    // reset killer moves to null
+    Move nullMove = {.moveType = NULL_MOVE};
+    for (size_t i = 0; i < MAX_DEPTH; i++){
+        bot->killerMoves[i][0] = nullMove;
+        bot->killerMoves[i][1] = nullMove;
+    }
+
+    // get all legal root moves
     Move legalMoves[200];
     size_t legalMovesLength = getLegalMoves(board,legalMoves);
     ScoredMove scoredMoves[200];
@@ -337,7 +403,7 @@ void getBestMove(pBot bot,Move *move){
 
     
     int score,i;
-    for (i = 2; !deadline.timeExpired && i <= 7; i++){
+    for (i = 2; !deadline.timeExpired && i <= MAX_DEPTH; i++){
         //score = negamax(board,i,move,-BIGGER_INF,BIGGER_INF,&deadline);
         board->pathInfo = &pathInfo;
         doIteration(bot,i,scoredMoves,legalMovesLength,&deadline);
@@ -350,11 +416,24 @@ void getBestMove(pBot bot,Move *move){
 
     double time = (clock() - start) / (double) CLOCKS_PER_SEC;
 
-    printf("stores: %ld\nhits: %ld\ncutoffs: %ld\n",bot->ttStores,bot->ttHits,bot->ttCutoffs);
-    printf("hit ratio: %f%%\n",bot->ttHits / (double) bot->ttStores * 100);
+    printf("nodes visited: %ld\nhits: %ld\ncollisions: %ld\n",bot->nodesVisited,bot->ttHits,bot->ttCollisions);
+
+
+    // hit ratio drops when depth is odd
+    // the reason for that is a mistake in the calculation, caused by including the leafs of the tree
+    printf("hit ratio: %f%%\n",bot->ttHits / (double) bot->nodesVisited * 100);
+
     printf("match ratio: %f%%\n",bot->ttHits / (double) bot->ttMatches * 100);
-    printf("cutoff ratio: %f%%\n",bot->ttCutoffs / (double) bot->ttStores * 100);
+    printf("collision ratio: %f%%\n",bot->ttCollisions / (double) bot->nodesVisited * 100);
     printf("bfs calls: %lu\n",board->bfsCalls);
+
+    printf("pvs fail low: %ld\n",bot->pvsFailLow);
+    printf("pvs fail high: %ld\n",bot->pvsFailHigh);
+    printf("pvs researches: %ld\n",bot->pvsResearches);
+    printf("wide windows: %ld\n",bot->wideWindows);
+
+    printf("killer cutoff ratio: %f%%\n",bot->killerCutoffs / (double) bot->killerAttempts * 100);
+
 
     printf("evaluation: %d\n",score);
     printf("thinking depth: %d\n",i - (deadline.timeExpired ? 2 : 1));

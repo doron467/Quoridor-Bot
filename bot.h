@@ -1,6 +1,10 @@
+#ifndef BOT_H
+#define BOT_H
+
 #define THINKING_TIME_LIMIT 100 // how long (in seconds) is the agent allowed to think per turn
 #define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
+#define MAX_DEPTH 7
 
 // do not change
 #define HORIZONTAL_ZOBRIST_INDEX 0
@@ -47,11 +51,20 @@ typedef struct _Bot {
     ZobristValues *zobristValues;
     uint64_t boardHash;
     TTEntry transpositionsTable[TT_SIZE];
+    Move killerMoves[MAX_DEPTH + 1][2];
+    uint8_t currentDepth;
 
+    // debug stuff
+    uint64_t killerAttempts;
+    uint64_t killerCutoffs;
     uint64_t ttHits;
     uint64_t ttMatches;
-    uint64_t ttStores;
-    uint64_t ttCutoffs;
+    uint64_t nodesVisited;
+    uint64_t ttCollisions;
+    uint64_t pvsFailLow;
+    uint64_t pvsFailHigh;
+    uint64_t pvsResearches;
+    uint64_t wideWindows;
 } Bot;
 
 typedef Bot *pBot;
@@ -77,3 +90,6 @@ void calculateBoardHash(pBot bot);
 
 // writes the bot's best move into the move buffer
 void getBestMove(pBot bot,Move *buffer);
+
+
+#endif

@@ -400,6 +400,7 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pa
     uint8_t queue[BOARD_SIZE];
     uint32_t queued[3] = {0};
     int8_t parent[81];
+    Direction directions[] = {LEFT,RIGHT,UP,DOWN};
 
     queue[0] = start;
     addToSet(start,queued);
@@ -436,37 +437,49 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pa
             int row = pos / 9;
             int column = pos % 9;
 
-            if (!inSet(MOVE_LEFT(pos),queued)){
-                if (!isBlocked(hWalls,vWalls,pos,row,column,LEFT)){
-                    addToSet(MOVE_LEFT(pos),queued);
-                    queue[tail++] = MOVE_LEFT(pos);
-                    parent[MOVE_LEFT(pos)] = pos;
+            for (size_t j = 0; j < 4; j++){
+                Direction dir = directions[j];
+                int8_t target = moveDirection(pos,dir);
+                if (target != -1 && !inSet(target,queued)){
+                    if (!isBlocked(hWalls,vWalls,pos,row,column,dir)){
+                        addToSet(target,queued);
+                        queue[tail++] = target;
+                        parent[target] = pos;
+                    }
                 }
             }
 
-            if (!inSet(MOVE_RIGHT(pos),queued)){
-                if (!isBlocked(hWalls,vWalls,pos,row,column,RIGHT)){
-                    addToSet(MOVE_RIGHT(pos),queued);
-                    queue[tail++] = MOVE_RIGHT(pos);
-                    parent[MOVE_RIGHT(pos)] = pos;
-                }
-            }
+            // if (!inSet(MOVE_LEFT(pos),queued)){
+            //     if (!isBlocked(hWalls,vWalls,pos,row,column,LEFT)){
+            //         addToSet(MOVE_LEFT(pos),queued);
+            //         queue[tail++] = MOVE_LEFT(pos);
+            //         parent[MOVE_LEFT(pos)] = pos;
+            //     }
+            // }
 
-            if (!inSet(MOVE_UP(pos),queued)){
-                if (!isBlocked(hWalls,vWalls,pos,row,column,UP)){
-                    addToSet(MOVE_UP(pos),queued);
-                    queue[tail++] = MOVE_UP(pos);
-                    parent[MOVE_UP(pos)] = pos;
-                }
-            }
+            // if (!inSet(MOVE_RIGHT(pos),queued)){
+            //     if (!isBlocked(hWalls,vWalls,pos,row,column,RIGHT)){
+            //         addToSet(MOVE_RIGHT(pos),queued);
+            //         queue[tail++] = MOVE_RIGHT(pos);
+            //         parent[MOVE_RIGHT(pos)] = pos;
+            //     }
+            // }
 
-            if (CAN_DOWN(pos) && !inSet(MOVE_DOWN(pos),queued)){
-                if (!isBlocked(hWalls,vWalls,pos,row,column,DOWN)){
-                    addToSet(MOVE_DOWN(pos),queued);
-                    queue[tail++] = MOVE_DOWN(pos);
-                    parent[MOVE_DOWN(pos)] = pos;
-                }
-            }
+            // if (!inSet(MOVE_UP(pos),queued)){
+            //     if (!isBlocked(hWalls,vWalls,pos,row,column,UP)){
+            //         addToSet(MOVE_UP(pos),queued);
+            //         queue[tail++] = MOVE_UP(pos);
+            //         parent[MOVE_UP(pos)] = pos;
+            //     }
+            // }
+
+            // if (CAN_DOWN(pos) && !inSet(MOVE_DOWN(pos),queued)){
+            //     if (!isBlocked(hWalls,vWalls,pos,row,column,DOWN)){
+            //         addToSet(MOVE_DOWN(pos),queued);
+            //         queue[tail++] = MOVE_DOWN(pos);
+            //         parent[MOVE_DOWN(pos)] = pos;
+            //     }
+            // }
         }
 
         depth++;
@@ -629,12 +642,10 @@ size_t getLegalMoves(pBoard board,Move *movesBuffer){
     return movesBuffer - bufferCopy;
 }
 
-bool isLegalMove(pBoard board, Move *move){
+bool isLegalMove(pBoard board, Move *move,int8_t *movementBuffer){
     if (move->moveType == MOVEMENT){
-        int8_t amogus[10];
-        getPlayerMoves(board,amogus);
-        for (size_t i = 0; amogus[i] != -1; i++){
-            if (amogus[i] == move->b2){
+        for (size_t i = 0; movementBuffer[i] != -1; i++){
+            if (movementBuffer[i] == move->b2){
                 return true;
             }
         }
