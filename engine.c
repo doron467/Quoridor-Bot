@@ -83,7 +83,7 @@ int main(int argc, char **argv){
 
                     if (valid){
                         Move move = {MOVEMENT,board->turn == 1 ? board->p1pos : board->p2pos, pos};
-                        makeMove(board,&move,0);
+                        makeMove(bot,&move,0);
                         movesBuffer[nextMoveIndex++] = move;
 
                     } else {
@@ -94,7 +94,7 @@ int main(int argc, char **argv){
                     int8_t pos = row * 8 + column;
                     if (canPlaceWall(bot,pos,action == 'h',0)){
                         Move move = {action == 'h' ? HORIZONTAL : VERTICAL,pos,0};
-                        makeMove(board,&move,0);
+                        makeMove(bot,&move,0);
                         movesBuffer[nextMoveIndex++] = move;
                     } else {
                         printf("invalid wall placement\n");

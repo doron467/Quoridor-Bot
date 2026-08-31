@@ -4,7 +4,7 @@
 #include <inttypes.h>
 
 #include "protocols.h"
-#include "bot.h"
+#include "../bot.h"
 
 int main(void)
 {

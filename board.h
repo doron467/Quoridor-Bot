@@ -6,6 +6,7 @@
 #define TILES_HASHSET_LENGTH 3
 
 // can maybe change
+#define MAX_GAME_LENGTH 500
 #define P1_START_POS 76
 #define P2_START_POS 4
 #define INITIAL_WALL_COUNT 10
@@ -22,7 +23,8 @@
 
 #define SWITCH_TURNS(boardPointer) ((boardPointer)->turn = (boardPointer)->turn % 2 + 1)
 
-#include "bot.h"
+typedef struct _Bot Bot;
+typedef Bot *pBot;
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -30,31 +32,6 @@
 
 typedef enum _Direction {LEFT,RIGHT,UP,DOWN} Direction;
 typedef enum _MoveType {MOVEMENT,HORIZONTAL,VERTICAL,NULL_MOVE} MoveType;
-
-// typedef struct _PathInfo {
-//     bool updated; // if updated is set to false, d1 and d2 shouldn't be trusted
-//     uint8_t d1; // length of shortest path for p1 to his goal
-//     uint8_t d2; // length of shortest path for p2 to his goal
-//     uint32_t *path1; // hashset containing the squares belonging to the shortest path for player1 to goal
-//     uint32_t *path2; // hashset containing the squares belonging to the shortest path for player2 to goal
-// } PathInfo;
-
-typedef struct _Board {
-    uint64_t hWalls; // hashset for horizontal walls
-    uint64_t vWalls; // hashset for vertical walls
-    uint8_t p1wc; // p1 wall count
-    uint8_t p2wc; // p2 wall count
-    int8_t p1pos; // 0 indexed from top left
-    int8_t p2pos; // 0 indexed from top left
-    uint8_t turn; // 1 if p1 turn, 2 if p2 turn
-    //PathInfo *pathInfo;
-
-    uint64_t bfsCalls; // debugging
-    uint64_t unupdatedCalls;
-} Board;
-
-typedef Board *pBoard;
-
 
 /*
 when move type is MOVEMENT, b1 is where the player was, and b2 is where the player went.
@@ -66,16 +43,35 @@ typedef struct _Move {
     int8_t b2;
 } Move;
 
+typedef struct _Board {
+    uint64_t hWalls; // hashset for horizontal walls
+    uint64_t vWalls; // hashset for vertical walls
+    uint8_t p1wc; // p1 wall count
+    uint8_t p2wc; // p2 wall count
+    int8_t p1pos; // 0 indexed from top left
+    int8_t p2pos; // 0 indexed from top left
+    uint8_t turn; // 1 if p1 turn, 2 if p2 turn
+    Move moveHistory[MAX_GAME_LENGTH];
+    size_t lastMoveIndex;
+
+    uint64_t bfsCalls; // debugging
+} Board;
+
+typedef Board *pBoard;
+
+
 pBoard initializeBoard(uint8_t turn);
 void printBoard(pBoard board);
 bool isGameOver(pBoard board);
 void printMove(Move *move);
+void printMoveHistory(pBoard board);
 bool sameMove(Move *move1, Move *move2);
 //void copyPathInfo(PathInfo *original,PathInfo *copy,uint32_t *path1,uint32_t *path2);
 
 bool inSet(int8_t pos, const uint32_t *hashset);
 void addToSet(int8_t pos, uint32_t *hashset);
 void removeFromSet(int8_t pos,uint32_t *hashset);
+void removeNeighboursFromSet(pBoard board,int8_t pos,uint32_t *hashset);
 
 /*
 makes a move on the board.
