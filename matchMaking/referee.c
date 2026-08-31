@@ -4,10 +4,12 @@
 #include <inttypes.h>
 
 #include "protocols.h"
+#include "bot.h"
 
 int main(void)
 {
     Board board;
+    pBot bot = createBot(&board);
     Move move;
 
     while (1) {
@@ -22,14 +24,14 @@ int main(void)
 
         int8_t movementBuffer[10];
         getPlayerMoves(&board,movementBuffer);
-        if (!isLegalMove(&board, &move,movementBuffer)) {
+        if (!isLegalMove(bot, &move,movementBuffer,0)) {
 
             printf("ILLEGAL\n");
             fflush(stdout);
             continue;
         }
 
-        makeMove(&board, &move);
+        makeMove(bot, &move,0);
 
         if (isGameOver(&board)) {
 
@@ -48,6 +50,8 @@ int main(void)
 
         fflush(stdout);
     }
+
+    destroyBot(bot);
 
     return 0;
 }

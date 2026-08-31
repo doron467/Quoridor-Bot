@@ -6,7 +6,7 @@ Quoridor: engine.o board.o bot.o
 engine.o: engine.c board.h bot.h
 	gcc -O2 -c engine.c -o engine.o
 
-board.o: board.c board.h
+board.o: board.c board.h bot.h
 	gcc -O2 -c board.c -o board.o
 
 bot.o: bot.c bot.h board.h
@@ -15,9 +15,9 @@ bot.o: bot.c bot.h board.h
 
 
 matchMaking/Referee: board.o matchMaking/referee.o matchMaking/protocols.o
-	gcc board.o matchMaking/referee.o matchMaking/protocols.o -o matchMaking/Referee
+	gcc board.o bot.o matchMaking/referee.o matchMaking/protocols.o -o matchMaking/Referee
 
-matchMaking/referee.o: matchMaking/referee.c matchMaking/protocols.h
+matchMaking/referee.o: matchMaking/referee.c matchMaking/protocols.h board.h bot.h
 	gcc -c matchMaking/referee.c -o matchMaking/referee.o
 
 
@@ -34,3 +34,5 @@ matchMaking/protocols.o: matchMaking/protocols.c board.h
 clean:
 	rm *.o
 	rm Quoridor
+	rm matchMaking/Bot
+	rm matchMaking/Referee

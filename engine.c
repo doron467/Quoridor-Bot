@@ -17,17 +17,15 @@ int main(int argc, char **argv){
     //printf("size: %lu\n",sizeof(Board));
     pBoard board = initializeBoard(argc > 1 ? argv[1][0] - '0' : 1);
     pBot bot = createBot(board);
-    PathInfo pathInfo;
     uint8_t lastTurn = 0;
     while (1){
+
+        calculateRootPath(bot);
 
         if (lastTurn != board->turn){
             printBoard(board);
             lastTurn = board->turn;
         }
-
-        pathInfo.updated = false;
-        board->pathInfo = &pathInfo;
 
         printf("enter next move: ");
 
@@ -85,7 +83,7 @@ int main(int argc, char **argv){
 
                     if (valid){
                         Move move = {MOVEMENT,board->turn == 1 ? board->p1pos : board->p2pos, pos};
-                        makeMove(board,&move);
+                        makeMove(board,&move,0);
                         movesBuffer[nextMoveIndex++] = move;
 
                     } else {
@@ -94,9 +92,9 @@ int main(int argc, char **argv){
 
                 } else if (action == 'h' || action == 'v'){
                     int8_t pos = row * 8 + column;
-                    if (canPlaceWall(board,pos,action == 'h')){
+                    if (canPlaceWall(bot,pos,action == 'h',0)){
                         Move move = {action == 'h' ? HORIZONTAL : VERTICAL,pos,0};
-                        makeMove(board,&move);
+                        makeMove(board,&move,0);
                         movesBuffer[nextMoveIndex++] = move;
                     } else {
                         printf("invalid wall placement\n");

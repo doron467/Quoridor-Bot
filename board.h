@@ -22,6 +22,8 @@
 
 #define SWITCH_TURNS(boardPointer) ((boardPointer)->turn = (boardPointer)->turn % 2 + 1)
 
+#include "bot.h"
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -29,13 +31,13 @@
 typedef enum _Direction {LEFT,RIGHT,UP,DOWN} Direction;
 typedef enum _MoveType {MOVEMENT,HORIZONTAL,VERTICAL,NULL_MOVE} MoveType;
 
-typedef struct _PathInfo {
-    bool updated; // if updated is set to false, d1 and d2 shouldn't be trusted
-    uint8_t d1; // length of shortest path for p1 to his goal
-    uint8_t d2; // length of shortest path for p2 to his goal
-    uint32_t *path1; // hashset containing the squares belonging to the shortest path for player1 to goal
-    uint32_t *path2; // hashset containing the squares belonging to the shortest path for player2 to goal
-} PathInfo;
+// typedef struct _PathInfo {
+//     bool updated; // if updated is set to false, d1 and d2 shouldn't be trusted
+//     uint8_t d1; // length of shortest path for p1 to his goal
+//     uint8_t d2; // length of shortest path for p2 to his goal
+//     uint32_t *path1; // hashset containing the squares belonging to the shortest path for player1 to goal
+//     uint32_t *path2; // hashset containing the squares belonging to the shortest path for player2 to goal
+// } PathInfo;
 
 typedef struct _Board {
     uint64_t hWalls; // hashset for horizontal walls
@@ -45,9 +47,10 @@ typedef struct _Board {
     int8_t p1pos; // 0 indexed from top left
     int8_t p2pos; // 0 indexed from top left
     uint8_t turn; // 1 if p1 turn, 2 if p2 turn
-    PathInfo *pathInfo;
+    //PathInfo *pathInfo;
 
     uint64_t bfsCalls; // debugging
+    uint64_t unupdatedCalls;
 } Board;
 
 typedef Board *pBoard;
@@ -68,14 +71,18 @@ void printBoard(pBoard board);
 bool isGameOver(pBoard board);
 void printMove(Move *move);
 bool sameMove(Move *move1, Move *move2);
-void copyPathInfo(PathInfo *original,PathInfo *copy,uint32_t *path1,uint32_t *path2);
+//void copyPathInfo(PathInfo *original,PathInfo *copy,uint32_t *path1,uint32_t *path2);
+
+bool inSet(int8_t pos, const uint32_t *hashset);
+void addToSet(int8_t pos, uint32_t *hashset);
+void removeFromSet(int8_t pos,uint32_t *hashset);
 
 /*
 makes a move on the board.
 no safety checks are done, to keep the function fast.
 it's the responsibility of the caller to check if a move is legal or not before calling the function.
 */
-void makeMove(pBoard board,Move *move);
+void makeMove(pBot bot,Move *move,size_t ply);
 
 /*
 unmakes a move on the board.   
@@ -88,8 +95,10 @@ void unmakeMove(pBoard board, Move *move);
 // path storage is a hashset where the resulting path will be written
 int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pathStorage);
 
+void calculateRootPath(pBot bot);
+
 // returns if the placement succeeded or not
-bool canPlaceWall(pBoard board,int8_t position,bool horizontal);
+bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply);
 
 /*
 writes all possible player moves into the buffer, with -1 as the last move.
@@ -103,8 +112,12 @@ same as getPlayerMoves, but returns ALL moves, with wall placements included.
 min length for the buffer is 134 (maybe). recommended length is 200
 note that the buffer here is a struct move, while in getPlayerMoves it's an int
 */
-size_t getLegalMoves(pBoard board,Move *movesBuffer);
+size_t getLegalMoves(pBot bot,Move *movesBuffer);
 
-bool isLegalMove(pBoard board, Move *move,int8_t *movementBuffer);
+
+/*
+returns if a move is legal or not. movement buffer is the buffer from getPlayerMoves
+*/
+bool isLegalMove(pBot bot, Move *move,int8_t *movementBuffer,size_t ply);
 
 #endif

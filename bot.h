@@ -1,18 +1,21 @@
 #ifndef BOT_H
 #define BOT_H
 
-#define THINKING_TIME_LIMIT 6 // how long (in seconds) is the agent allowed to think per turn
+#define THINKING_TIME_LIMIT 8 // how long (in seconds) is the agent allowed to think per turn
 #define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
-#define MAX_DEPTH 20
+#define MAX_DEPTH 6
+#define MAX_DEPTH_SIZE ((MAX_DEPTH) + 1)
 
 // do not change
 #define HORIZONTAL_ZOBRIST_INDEX 0
 #define VERTICAL_ZOBRIST_INDEX 1
 
 #include "board.h"
+
 #include <stdlib.h>
 #include <time.h>
+#include <stdint.h>
 
 typedef struct _Deadline {
     clock_t deadline; // clock deadline for the search
@@ -46,12 +49,23 @@ typedef struct _TTEntry {
     TTFlag flag;
 } TTEntry;
 
+typedef struct _PathInfo {
+    uint8_t d1; // length of shortest path for p1 to his goal
+    uint8_t d2; // length of shortest path for p2 to his goal
+    uint32_t *path1; // hashset containing the squares belonging to the shortest path for player1 to goal
+    uint32_t *path2; // hashset containing the squares belonging to the shortest path for player2 to goal
+} PathInfo;
+
+typedef PathInfo *pPathInfo;
+
 typedef struct _Bot {
     pBoard board;
     ZobristValues *zobristValues;
     uint64_t boardHash;
     TTEntry transpositionsTable[TT_SIZE];
-    Move killerMoves[MAX_DEPTH + 1][2];
+    Move killerMoves[MAX_DEPTH_SIZE][2];
+    PathInfo pathInfos[MAX_DEPTH_SIZE];
+    
     uint8_t currentDepth;
 
     // debug stuff

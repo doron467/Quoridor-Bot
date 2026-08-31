@@ -20,7 +20,7 @@ pBoard initializeBoard(uint8_t turn){
     gameBoard->turn = turn;
 
     //gameBoard->pathInfo = malloc(sizeof(PathInfo)); // temporary
-    gameBoard->pathInfo = NULL;
+    //gameBoard->pathInfo = NULL;
     gameBoard->bfsCalls = 0;
     //gameBoard->pathInfo->updated = false;
     return gameBoard;
@@ -42,14 +42,54 @@ void printMove(Move *move){
     }
 }
 
-void makeMove(pBoard board,Move *move){
+void copyPathSet(uint32_t *originalPath,uint32_t *copyPath){
+    for (size_t i = 0; i < TILES_HASHSET_LENGTH; i++){
+        copyPath[i] = originalPath[i];
+    }
+}
+
+void makeMove(pBot bot,Move *move,size_t ply){
+    //board->pathInfo->updated = true;
+    pBoard board = bot->board;
     if (move->moveType == MOVEMENT){
         int8_t target = (int8_t) move->b2;
+
+        // path info needs to be updated
+        pPathInfo pathInfo = &bot->pathInfos[ply];
+        pPathInfo nextPath = &bot->pathInfos[ply + 1];
+        uint32_t *pathSet = board->turn == 1 ? pathInfo->path1 : pathInfo->path2;
+        int rankTarget = board->turn == 1 ? 0 : 8;
+        int d = bfs(board->hWalls,board->vWalls,target,rankTarget,nextPath);
+        if (board->turn == 1){nextPath->d1 = d;}else{nextPath->d2 = d;}
+
+        // copy the other player's path from the previous depth
+        if (board->turn == 1){
+            copyPathSet(pathInfo->path2,nextPath->path2);
+            nextPath->d2 = pathInfo->d2;
+        } else {
+            copyPathSet(pathInfo->path1,nextPath->path1);
+            nextPath->d1 = pathInfo->d1;
+        }
+
+        // int8_t currentPosition = board->turn == 1 ? board->p1pos : board->p2pos;
+        // if (inSet(currentPosition,pathSet) && inSet(target,pathSet)){
+        //     // the player is moving towards a square inside his previously calculated shortest path
+        //     // naturally, since this path is the shortest path available, his distance decread by 1 exactly
+        //     removeFromSet(currentPosition);
+        //     if (board->turn == 1){pathInfo->d1--;}else{pathInfo->d2--;}
+        // } else {
+        //     // need to recalculate the path from scratch
+        //     int rankTarget = board->turn == 1 ? 0 : 8;
+        //     int d = bfs(board->hWalls,board->vWalls,target,rankTarget,pathSet);
+        //     if (board->turn == 1){pathInfo->d1 = d;}else{pathInfo->d2 = d;}
+        // }
+
         if (board->turn == 1){board->p1pos = target;} else {board->p2pos = target;}
-        board->pathInfo->updated = false;
+        //board->pathInfo->updated = false;
+
     } else {
 
-        board->pathInfo->updated = true;
+        //board->pathInfo->updated = true;
         if (move->moveType == HORIZONTAL){
             board->hWalls |= UINT64_C(1) << move->b1;
         } else {
@@ -396,6 +436,16 @@ void addToSet(int8_t pos, uint32_t *hashset)
     }
 }
 
+void removeFromSet(int8_t pos,uint32_t *hashset){
+    if (pos < 32) {
+        hashset[0] ^= UINT32_C(1) << pos;
+    } else if (pos < 64) {
+        hashset[1] ^= UINT32_C(1) << (pos - 32);
+    } else {
+        hashset[2] ^= UINT32_C(1) << (pos - 64);
+    }
+}
+
 int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pathStorage){
     uint8_t queue[BOARD_SIZE];
     uint32_t queued[3] = {0};
@@ -518,16 +568,28 @@ bool wallTouchingPath(int32_t *path,int row,int column,bool horizontal){
     return false;
 }
 
-bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
+void calculateRootPath(pBot bot){
+    pBoard board = bot->board;
+    pPathInfo rootPath = &bot->pathInfos[0];
+    rootPath->d1 = bfs(board->hWalls,board->vWalls,board->p1pos,0,&rootPath->path1);
+    rootPath->d2 = bfs(board->hWalls,board->vWalls,board->p2pos,8,&rootPath->path2);
+}
 
-    if (board->pathInfo == NULL){
+bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
+
+    pBoard board = bot->board;
+    pPathInfo currentPath = &bot->pathInfos[ply];
+    pPathInfo nextPath = &bot->pathInfos[ply + 1];
+
+    if (currentPath == NULL){
         printf("error: can place wall called with null path info\n");
         exit(1);
     }
 
-    if (!board->pathInfo->updated){
-        //printf("warning: path not updated\n");
-    }
+    // if (!currentPath->updated){
+    //     //printf("warning: path not updated\n");
+    //     board->unupdatedCalls += 2;
+    // }
 
     if ((board->turn == 1 ? board->p1wc : board->p2wc) <= 0){
         return false; // out of walls to place
@@ -571,38 +633,43 @@ bool canPlaceWall(pBoard board,int8_t position,bool horizontal){
         }
     }
 
-    uint32_t *path1Set = board->pathInfo->path1;
-    uint32_t *path2Set = board->pathInfo->path2;
-    bool path1Collision = !board->pathInfo->updated || wallTouchingPath(path1Set,row,column,horizontal);
-    bool path2Collision = !board->pathInfo->updated || wallTouchingPath(path2Set,row,column,horizontal);
+    //bool path1Collision = !currentPath->updated || wallTouchingPath(currentPath->path1,row,column,horizontal);
+    //bool path2Collision = !currentPath->updated || wallTouchingPath(currentPath->path2,row,column,horizontal);
+    bool path1Collision = wallTouchingPath(currentPath->path1,row,column,horizontal);
+    bool path2Collision = wallTouchingPath(currentPath->path2,row,column,horizontal);
     
-    int depth1 = board->pathInfo->d1;
+    int depth1 = currentPath->d1;
     if (path1Collision){
         board->bfsCalls++;
-        depth1 = bfs(hUpdated,vUpdated,board->p1pos,0,board->pathInfo->path1);
+        depth1 = bfs(hUpdated,vUpdated,board->p1pos,0,nextPath->path1);
         if (depth1 == -1){
             return false; // can't trap player 1
         }
+    } else {
+        copyPathSet(currentPath->path1,nextPath->path1);
     }
     
-    int depth2 = board->pathInfo->d2;
+    int depth2 = currentPath->d2;
     if (path2Collision){
         board->bfsCalls++;
-        depth2 = bfs(hUpdated,vUpdated,board->p2pos,8,board->pathInfo->path2);
+        depth2 = bfs(hUpdated,vUpdated,board->p2pos,8,nextPath->path2);
         if (depth2 == -1){
             return false; // can't trap player 2
         }
+    } else {
+        copyPathSet(currentPath->path2,nextPath->path2);
     }
     
 
-    board->pathInfo->d1 = depth1;
-    board->pathInfo->d2 = depth2;
+    nextPath->d1 = depth1;
+    nextPath->d2 = depth2;
 
     return true;
 }
 
-size_t getLegalMoves(pBoard board,Move *movesBuffer){
+size_t getLegalMoves(pBot bot,Move *movesBuffer){
     
+    pBoard board = bot->board;
     Move *bufferCopy = movesBuffer;
 
     int8_t movementBuffer[10];
@@ -618,7 +685,7 @@ size_t getLegalMoves(pBoard board,Move *movesBuffer){
 
 
     for (int8_t i = 0; i < 64; i++){
-        if (canPlaceWall(board,i,true)){
+        if (canPlaceWall(bot,i,true,0)){
             Move move = {
                 HORIZONTAL,
                 i,
@@ -626,7 +693,7 @@ size_t getLegalMoves(pBoard board,Move *movesBuffer){
             };
             *(movesBuffer++) = move;
         }
-        if (canPlaceWall(board,i,false)){
+        if (canPlaceWall(bot,i,false,0)){
             Move move = {
                 VERTICAL,
                 i,
@@ -642,7 +709,7 @@ size_t getLegalMoves(pBoard board,Move *movesBuffer){
     return movesBuffer - bufferCopy;
 }
 
-bool isLegalMove(pBoard board, Move *move,int8_t *movementBuffer){
+bool isLegalMove(pBot bot, Move *move,int8_t *movementBuffer,size_t ply){
     if (move->moveType == MOVEMENT){
         for (size_t i = 0; movementBuffer[i] != -1; i++){
             if (movementBuffer[i] == move->b2){
@@ -651,7 +718,7 @@ bool isLegalMove(pBoard board, Move *move,int8_t *movementBuffer){
         }
         return false;
     } else if (move->moveType == HORIZONTAL || move->moveType == VERTICAL){
-        return canPlaceWall(board,move->b1,move->moveType == HORIZONTAL);
+        return canPlaceWall(bot,move->b1,move->moveType == HORIZONTAL,ply);
     }
     return false;
 }
