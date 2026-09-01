@@ -29,7 +29,20 @@ int evaluate(pBot bot){
 }
 
 int quiescenceSearch(pBot bot){
+    pBoard board = bot->board;
+    pPathInfo lastPath = &bot->pathInfos[bot->currentDepth];
+    while (true){
+        uint32_t *playerPath = board->turn == 1 ? lastPath->path1 : lastPath->path2;
+        for (int row = 0; row < 8; row++){
+            for (int col = 0; col < 8; col++){
+                if (!wallBlockingPath(playerPath,row,col,true)){
+                    continue;
+                }
 
+
+            }
+        }
+    }
 }
 
 int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline);
@@ -455,7 +468,7 @@ void updateHash(pBot bot, Move *move){
         bot->boardHash ^= values[move->b1];
         bot->boardHash ^= values[move->b2];
     } else if (move->moveType == HORIZONTAL || move->moveType == VERTICAL){
-        int index = move->moveType == HORIZONTAL ? HORIZONTAL_ZOBRIST_INDEX : VERTICAL_ZOBRIST_INDEX;
+        int index = move->moveType == HORIZONTAL ? HORIZONTAL_INDEX : VERTICAL_INDEX;
         bot->boardHash ^= bot->zobristValues->wallHash[index][move->b1];
 
         int wc = board->turn == 1 ? board->p1wc : board->p2wc;
@@ -474,10 +487,10 @@ void calculateBoardHash(pBot bot){
     for (size_t i = 0; i < 64; i++){
         uint64_t mask = UINT64_C(1) << i;
         if (board->hWalls & mask){
-            bot->boardHash ^= values->wallHash[HORIZONTAL_ZOBRIST_INDEX][i];
+            bot->boardHash ^= values->wallHash[HORIZONTAL_INDEX][i];
         }
         if (board->vWalls & mask){
-            bot->boardHash ^= values->wallHash[VERTICAL_ZOBRIST_INDEX][i];
+            bot->boardHash ^= values->wallHash[VERTICAL_INDEX][i];
         }
     }
     
@@ -503,8 +516,8 @@ pBot createBot(pBoard board){
     // generate zobrist hashes
     uint64_t seed = 123456789;
     for (size_t i = 0; i < 64; i++){
-        values->wallHash[HORIZONTAL_ZOBRIST_INDEX][i] = splitmix64(&seed);
-        values->wallHash[VERTICAL_ZOBRIST_INDEX][i] = splitmix64(&seed);
+        values->wallHash[HORIZONTAL_INDEX][i] = splitmix64(&seed);
+        values->wallHash[VERTICAL_INDEX][i] = splitmix64(&seed);
     }
 
     for (int player = 0; player < 2; player++){

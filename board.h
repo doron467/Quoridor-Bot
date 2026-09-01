@@ -66,7 +66,6 @@ bool isGameOver(pBoard board);
 void printMove(Move *move);
 void printMoveHistory(pBoard board);
 bool sameMove(Move *move1, Move *move2);
-//void copyPathInfo(PathInfo *original,PathInfo *copy,uint32_t *path1,uint32_t *path2);
 
 bool inSet(int8_t pos, const uint32_t *hashset);
 void addToSet(int8_t pos, uint32_t *hashset);
@@ -92,6 +91,8 @@ void unmakeMove(pBoard board, Move *move);
 int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pathStorage);
 
 void calculateRootPath(pBot bot);
+
+bool wallBlockingPath(int32_t *path,int row,int column,bool horizontal);
 
 // returns if the placement succeeded or not
 bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply);

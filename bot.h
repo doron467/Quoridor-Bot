@@ -1,15 +1,15 @@
 #ifndef BOT_H
 #define BOT_H
 
-#define THINKING_TIME_LIMIT 100 // how long (in seconds) is the agent allowed to think per turn
+#define THINKING_TIME_LIMIT 7 // how long (in seconds) is the agent allowed to think per turn
 #define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
-#define MAX_DEPTH 7
+#define MAX_DEPTH 6
 #define MAX_DEPTH_SIZE ((MAX_DEPTH) + 1)
 
 // do not change
-#define HORIZONTAL_ZOBRIST_INDEX 0
-#define VERTICAL_ZOBRIST_INDEX 1
+#define HORIZONTAL_INDEX 0
+#define VERTICAL_INDEX 1
 
 #include "board.h"
 
@@ -54,6 +54,7 @@ typedef struct _PathInfo {
     uint8_t d2; // length of shortest path for p2 to his goal
     uint32_t path1[TILES_HASHSET_LENGTH]; // hashset containing the squares belonging to the shortest path for player1 to goal
     uint32_t path2[TILES_HASHSET_LENGTH]; // hashset containing the squares belonging to the shortest path for player2 to goal
+    uint64_t blacklist[2]; // walls in this set are blacklisted (illegal to place since they block the path)
 } PathInfo;
 
 typedef PathInfo *pPathInfo;

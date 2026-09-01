@@ -63,63 +63,125 @@ void printMoveHistory(pBoard board){
     }
 }
 
+Direction getDirection(int8_t start,int8_t target){
+    int difference = target - start;
+    switch (difference){
+        case MOVE_LEFT(0):
+        return LEFT;
+
+        case MOVE_RIGHT(0):
+        return RIGHT;
+
+        case MOVE_UP(0):
+        return UP;
+
+        case MOVE_DOWN(0):
+        return DOWN;
+
+        default:
+        printf("invalid move direction in get direction function\n");
+        exit(1);
+    }
+}
+
+void removeWall(uint64_t *walls,int row,int col){
+    *walls &= ~(UINT64_C(1) << (row * 8 + col));
+}
+
+void updateBlacklist(uint64_t *blacklist,int8_t start,int8_t target){
+
+    Direction dir = getDirection(start,target);
+    int row = start / 9;
+    int col = start % 9;
+    if (dir == LEFT){
+        removeWall(&blacklist[VERTICAL_INDEX],row-1,col-1);
+        removeWall(&blacklist[VERTICAL_INDEX],row,col-1);
+    } else if (dir == RIGHT){
+        removeWall(&blacklist[VERTICAL_INDEX],row-1,col);
+        removeWall(&blacklist[VERTICAL_INDEX],row,col);
+    } else if (dir == UP){
+        removeWall(&blacklist[HORIZONTAL_INDEX],row-1,col-1);
+        removeWall(&blacklist[HORIZONTAL_INDEX],row-1,col);
+    } else if (dir == DOWN){
+        removeWall(&blacklist[HORIZONTAL_INDEX],row,col-1);
+        removeWall(&blacklist[HORIZONTAL_INDEX],row,col);
+    }
+
+}
+
+void doMovementUpdates(pBoard board,pPathInfo pathInfo,pPathInfo nextPath,Move *move){
+    int8_t startPos = move->b1;
+    int8_t target = move->b2;
+    int dist = manhattanDistance(startPos,target);
+    bool isJump = dist == 2;
+
+    // path info needs to be updated
+    uint32_t *pathSet = board->turn == 1 ? pathInfo->path1 : pathInfo->path2;
+    uint32_t *nextSet = board->turn == 1 ? nextPath->path1 : nextPath->path2;
+
+    if (inSet(target,pathSet)){ // player is following his best path, no need to recalculate
+        // update the hashset
+        copyPathSet(pathSet,nextSet);
+
+        removeFromSet(startPos,nextSet);
+        if (isJump){
+            // the shortest path might have not necessarily passed through the other played who got jumped on
+            // so remove all the distance-1 neighbours of the start pos 
+            removeNeighboursFromSet(board,startPos,nextSet);
+        }
+
+        // update the distance
+        if (board->turn == 1){
+            nextPath->d1 = pathInfo->d1 - dist;
+            assert(nextPath->d1 ==bfs(board->hWalls, board->vWalls,target,0,NULL));
+        } else {
+            nextPath->d2 = pathInfo->d2 - dist;
+            assert(nextPath->d2 ==bfs(board->hWalls, board->vWalls,target,8,NULL));
+        }
+
+    } else {
+        // need to recalculate from scratch
+        int rankTarget = board->turn == 1 ? 0 : 8;
+        int d = bfs(board->hWalls,board->vWalls,target,rankTarget,nextSet);
+        if (board->turn == 1){nextPath->d1 = d;}else{nextPath->d2 = d;}
+    }
+
+    // copy the other player's path from the previous depth
+    if (board->turn == 1){
+        copyPathSet(pathInfo->path2,nextPath->path2);
+        nextPath->d2 = pathInfo->d2;
+    } else {
+        copyPathSet(pathInfo->path1,nextPath->path1);
+        nextPath->d1 = pathInfo->d1;
+    }
+
+    // if a player crossed a blacklisted wall, it needs to be checked again
+    if (isJump){
+        int8_t opponent = board->turn == 1 ? board->p2pos : board->p1pos;
+        updateBlacklist(nextPath->blacklist,startPos,opponent);
+        updateBlacklist(nextPath->blacklist,opponent,target);
+    } else {
+        updateBlacklist(nextPath->blacklist,startPos,target);
+    }
+
+    // finally, update the player's position
+    if (board->turn == 1){board->p1pos = move->b2;} else {board->p2pos = move->b2;}
+}
+
 void makeMove(pBot bot,Move *move,size_t ply){
-    //board->pathInfo->updated = true;
     pBoard board = bot->board;
     board->moveHistory[board->lastMoveIndex++] = *move;
 
+    pPathInfo pathInfo = &(bot->pathInfos[ply]);
+    pPathInfo nextPath = &(bot->pathInfos[ply + 1]);
+    // update the blacklisted walls
+    nextPath->blacklist[HORIZONTAL_INDEX] = pathInfo->blacklist[HORIZONTAL_INDEX];
+    nextPath->blacklist[VERTICAL_INDEX] = pathInfo->blacklist[VERTICAL_INDEX];
+
     if (move->moveType == MOVEMENT){
-        int8_t startPos = move->b1;
-        int8_t target = move->b2;
-
-        // path info needs to be updated
-        pPathInfo pathInfo = &(bot->pathInfos[ply]);
-        pPathInfo nextPath = &(bot->pathInfos[ply + 1]);
-        uint32_t *pathSet = board->turn == 1 ? pathInfo->path1 : pathInfo->path2;
-        uint32_t *nextSet = board->turn == 1 ? nextPath->path1 : nextPath->path2;
-
-        if (inSet(target,pathSet)){ // player is following his best path, no need to recalculate
-            // update the hashset
-            copyPathSet(pathSet,nextSet);
-
-            removeFromSet(startPos,nextSet);
-            int dist = manhattanDistance(startPos,target);
-            if (dist == 2){ // is a jump
-                removeNeighboursFromSet(board,startPos,nextSet);
-            }
-
-            // update the distance
-            if (board->turn == 1){
-                nextPath->d1 = pathInfo->d1 - dist;
-                assert(nextPath->d1 ==bfs(board->hWalls, board->vWalls,target,0,NULL));
-            } else {
-                nextPath->d2 = pathInfo->d2 - dist;
-                assert(nextPath->d2 ==bfs(board->hWalls, board->vWalls,target,8,NULL));
-            }
-
-        } else {
-            // need to recalculate from scratch
-            int rankTarget = board->turn == 1 ? 0 : 8;
-            int d = bfs(board->hWalls,board->vWalls,target,rankTarget,nextSet);
-            if (board->turn == 1){nextPath->d1 = d;}else{nextPath->d2 = d;}
-        }
-
-        // copy the other player's path from the previous depth
-        if (board->turn == 1){
-            copyPathSet(pathInfo->path2,nextPath->path2);
-            nextPath->d2 = pathInfo->d2;
-        } else {
-            copyPathSet(pathInfo->path1,nextPath->path1);
-            nextPath->d1 = pathInfo->d1;
-        }
-
-
-        if (board->turn == 1){board->p1pos = target;} else {board->p2pos = target;}
-        
-
+        doMovementUpdates(board,pathInfo,nextPath,move);
     } else {
 
-        //board->pathInfo->updated = true;
         if (move->moveType == HORIZONTAL){
             board->hWalls |= UINT64_C(1) << move->b1;
         } else {
@@ -341,6 +403,7 @@ bool isBlocked(uint64_t hWalls,uint64_t vWalls,int8_t startPos,int row,int colum
     return false;
 }
 
+
 size_t getPlayerMoves(pBoard board,int8_t *buffer){
 
     int8_t *bufferCopy = buffer;
@@ -461,12 +524,13 @@ void removeFromSet(int8_t pos,uint32_t *hashset){
         return;
     }
 
+    uint32_t mask = ~(UINT32_C(1) << pos);
     if (pos < 32) {
-        hashset[0] ^= UINT32_C(1) << pos;
+        hashset[0] &= mask;
     } else if (pos < 64) {
-        hashset[1] ^= UINT32_C(1) << (pos - 32);
+        hashset[1] &= mask;
     } else {
-        hashset[2] ^= UINT32_C(1) << (pos - 64);
+        hashset[2] &= mask;
     }
 }
 
@@ -547,7 +611,7 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pa
     return -1;
 }
 
-bool wallTouchingPath(int32_t *path,int row,int column,bool horizontal){
+bool wallBlockingPath(int32_t *path,int row,int column,bool horizontal){
     int8_t topLeft = row * 9 + column;
     int8_t topRight = MOVE_RIGHT(topLeft);
     if (horizontal){
@@ -581,6 +645,11 @@ void calculateRootPath(pBot bot){
     pPathInfo rootPath = &bot->pathInfos[0];
     rootPath->d1 = bfs(board->hWalls,board->vWalls,board->p1pos,0,rootPath->path1);
     rootPath->d2 = bfs(board->hWalls,board->vWalls,board->p2pos,8,rootPath->path2);
+
+    // initialize blacklist
+    rootPath->blacklist[HORIZONTAL_INDEX] = 0;
+    rootPath->blacklist[VERTICAL_INDEX] = 0;
+
 }
 
 bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
@@ -588,6 +657,7 @@ bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
     pBoard board = bot->board;
     pPathInfo currentPath = &(bot->pathInfos[ply]);
     pPathInfo nextPath = &(bot->pathInfos[ply + 1]);
+    int wallIndex = horizontal ? HORIZONTAL_INDEX : VERTICAL_INDEX;
 
     if ((board->turn == 1 ? board->p1wc : board->p2wc) <= 0){
         return false; // out of walls to place
@@ -595,6 +665,11 @@ bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
 
     if (position < 0 || position >= 64){
         return false; // position out of bounds
+    }
+
+    // check if wall has been blacklisted as an illegal wall
+    if (currentPath->blacklist[wallIndex] & (UINT64_C(1) << position)){
+        return false;
     }
 
     uint64_t mask = UINT64_C(1) << position;
@@ -605,8 +680,8 @@ bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
         return false; // walls cannot cross
     }
 
-    int row = position >> 3; // (position / 8)
-    int column = position & 0b111; // (position % 8)
+    int row = position / 8;
+    int column = position % 8;
 
     if (horizontal){
         hUpdated |= mask;
@@ -631,14 +706,15 @@ bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
         }
     }
 
-    bool path1Collision = wallTouchingPath(currentPath->path1,row,column,horizontal);
-    bool path2Collision = wallTouchingPath(currentPath->path2,row,column,horizontal);
+    bool path1Collision = wallBlockingPath(currentPath->path1,row,column,horizontal);
+    bool path2Collision = wallBlockingPath(currentPath->path2,row,column,horizontal);
     
     int depth1 = currentPath->d1;
     if (path1Collision){
         board->bfsCalls++;
         depth1 = bfs(hUpdated,vUpdated,board->p1pos,0,nextPath->path1);
         if (depth1 == -1){
+            currentPath->blacklist[wallIndex] |= UINT64_C(1) << position;
             return false; // can't trap player 1
         }
     } else {
@@ -650,6 +726,7 @@ bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
         board->bfsCalls++;
         depth2 = bfs(hUpdated,vUpdated,board->p2pos,8,nextPath->path2);
         if (depth2 == -1){
+            currentPath->blacklist[wallIndex] |= UINT64_C(1) << position;
             return false; // can't trap player 2
         }
     } else {
