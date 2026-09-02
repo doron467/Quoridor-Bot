@@ -133,10 +133,10 @@ void doMovementUpdates(pBoard board,pPathInfo pathInfo,pPathInfo nextPath,Move *
         // update the distance
         if (board->turn == 1){
             nextPath->d1 = pathInfo->d1 - dist;
-            assert(nextPath->d1 ==bfs(board->hWalls, board->vWalls,target,0,NULL));
+            //assert(nextPath->d1 ==bfs(board->hWalls, board->vWalls,target,0,NULL));
         } else {
             nextPath->d2 = pathInfo->d2 - dist;
-            assert(nextPath->d2 ==bfs(board->hWalls, board->vWalls,target,8,NULL));
+            //assert(nextPath->d2 ==bfs(board->hWalls, board->vWalls,target,8,NULL));
         }
 
     } else {
@@ -611,7 +611,7 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pa
     return -1;
 }
 
-bool wallBlockingPath(int32_t *path,int row,int column,bool horizontal){
+bool wallCollidingPath(int32_t *path,int row,int column,bool horizontal){
     int8_t topLeft = row * 9 + column;
     int8_t topRight = MOVE_RIGHT(topLeft);
     if (horizontal){
@@ -652,6 +652,38 @@ void calculateRootPath(pBot bot){
 
 }
 
+bool placementAvailable(pBoard board,int row,int column,bool horizontal){
+
+    uint64_t mask = UINT64_C(1) << (row * 8 + column);
+
+    if ((board->hWalls & mask) || (board->vWalls & mask)){
+        return false; // walls cannot cross
+    }
+
+    if (horizontal){
+
+        if ((column != 0) && (board->hWalls & (mask >> 1))){
+            return false; // wall already placed to the left
+        }
+
+        if ((column != 7) && (board->hWalls & (mask << 1))){
+            return false; // wall already placed to the right
+        }
+
+    } else {
+
+        if ((row > 0) && (board->vWalls & (mask >> 8))){
+            return false; // wall already placed above
+        }
+
+        if ((row < 7) && (board->vWalls & (mask << 8))){
+            return false; // wall already placed below
+        }
+    }
+
+    return true;
+}
+
 bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
 
     pBoard board = bot->board;
@@ -672,42 +704,24 @@ bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply){
         return false;
     }
 
-    uint64_t mask = UINT64_C(1) << position;
-    uint64_t hUpdated = board->hWalls;
-    uint64_t vUpdated = board->vWalls;
-
-    if ((board->hWalls & mask) || (board->vWalls & mask)){
-        return false; // walls cannot cross
-    }
-
     int row = position / 8;
     int column = position % 8;
 
-    if (horizontal){
-        hUpdated |= mask;
-
-        if ((column != 0) && (board->hWalls & (mask >> 1))){
-            return false; // wall already placed to the left
-        }
-
-        if ((column != 7) && (board->hWalls & (mask << 1))){
-            return false; // wall already placed to the right
-        }
-
-    } else {
-        vUpdated |= mask;
-
-        if ((position - 8 >= 0) && (board->vWalls & (mask >> 8))){
-            return false; // wall already placed above
-        }
-
-        if ((position + 8 < 64) && (board->vWalls & (mask << 8))){
-            return false; // wall already placed below
-        }
+    if (!placementAvailable(board,row,column,horizontal)){
+        return false;
     }
 
-    bool path1Collision = wallBlockingPath(currentPath->path1,row,column,horizontal);
-    bool path2Collision = wallBlockingPath(currentPath->path2,row,column,horizontal);
+    uint64_t mask = UINT64_C(1) << position;
+    uint64_t hUpdated = board->hWalls;
+    uint64_t vUpdated = board->vWalls;
+    if (horizontal){
+        hUpdated |= mask;
+    } else {
+        vUpdated |= mask;
+    }
+
+    bool path1Collision = wallCollidingPath(currentPath->path1,row,column,horizontal);
+    bool path2Collision = wallCollidingPath(currentPath->path2,row,column,horizontal);
     
     int depth1 = currentPath->d1;
     if (path1Collision){

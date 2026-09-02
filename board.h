@@ -43,6 +43,14 @@ typedef struct _Move {
     int8_t b2;
 } Move;
 
+
+// effectively an 81 bitmap for the board tiles
+typedef struct _TileSet {
+    uint32_t bits[TILES_HASHSET_LENGTH];
+} TileSet;
+
+typedef TileSet *pTileSet;
+
 typedef struct _Board {
     uint64_t hWalls; // hashset for horizontal walls
     uint64_t vWalls; // hashset for vertical walls
@@ -92,7 +100,9 @@ int bfs(uint64_t hWalls,uint64_t vWalls,int8_t start,int rankTarget,uint32_t *pa
 
 void calculateRootPath(pBot bot);
 
-bool wallBlockingPath(int32_t *path,int row,int column,bool horizontal);
+bool wallCollidingPath(int32_t *path,int row,int column,bool horizontal);
+
+bool placementAvailable(pBoard board,int row,int column,bool horizontal);
 
 // returns if the placement succeeded or not
 bool canPlaceWall(pBot bot,int8_t position,bool horizontal,size_t ply);

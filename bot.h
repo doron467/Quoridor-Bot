@@ -1,10 +1,10 @@
 #ifndef BOT_H
 #define BOT_H
 
-#define THINKING_TIME_LIMIT 7 // how long (in seconds) is the agent allowed to think per turn
+#define THINKING_TIME_LIMIT 8 // how long (in seconds) is the agent allowed to think per turn
 #define TT_SIZE (1 << 20)   // transpositions table size (in entries) (~ 1 million)
 #define CLOCK_CHECK 1024 // how many nodes before doing a clock check
-#define MAX_DEPTH 6
+#define MAX_DEPTH 20
 #define MAX_DEPTH_SIZE ((MAX_DEPTH) + 1)
 
 // do not change
@@ -52,6 +52,8 @@ typedef struct _TTEntry {
 typedef struct _PathInfo {
     uint8_t d1; // length of shortest path for p1 to his goal
     uint8_t d2; // length of shortest path for p2 to his goal
+    //pTileSet path1;
+    //pTileSet path2;
     uint32_t path1[TILES_HASHSET_LENGTH]; // hashset containing the squares belonging to the shortest path for player1 to goal
     uint32_t path2[TILES_HASHSET_LENGTH]; // hashset containing the squares belonging to the shortest path for player2 to goal
     uint64_t blacklist[2]; // walls in this set are blacklisted (illegal to place since they block the path)

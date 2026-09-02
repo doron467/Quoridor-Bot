@@ -28,22 +28,39 @@ int evaluate(pBot bot){
     return difference + 1;
 }
 
-int quiescenceSearch(pBot bot){
-    pBoard board = bot->board;
-    pPathInfo lastPath = &bot->pathInfos[bot->currentDepth];
-    while (true){
-        uint32_t *playerPath = board->turn == 1 ? lastPath->path1 : lastPath->path2;
-        for (int row = 0; row < 8; row++){
-            for (int col = 0; col < 8; col++){
-                if (!wallBlockingPath(playerPath,row,col,true)){
-                    continue;
-                }
+// int quiescenceSearch(pBot bot){
+//     pBoard board = bot->board;
+//     pPathInfo lastPath = &bot->pathInfos[bot->currentDepth];
+//     while (true){
+//         uint32_t *playerPath = board->turn == 1 ? lastPath->path1 : lastPath->path2;
+//         for (int i = 0; i < 2; i++){
+//             bool horizontal = i == 0;
+//             int wallIndex = horizontal ? HORIZONTAL_INDEX : VERTICAL_INDEX;
+//             for (int row = 0; row < 8; row++){
+//                 for (int col = 0; col < 8; col++){
+//                     // if the wall doesn't even touch the path, don't bother checking it
+//                     if (!wallCollidingPath(playerPath,row,col,true)){
+//                         continue;
+//                     }
 
+//                     // if the wall completely blocks the player's path, it's illegal to place
+//                     uint64_t wallMask = UINT64_C(1) << (row * 8 + col);
+//                     if (lastPath->blacklist[wallIndex] & wallMask){
+//                         continue;
+//                     }
 
-            }
-        }
-    }
-}
+//                     // if there's already another wall blocking the placement of this wall, skip over it
+//                     if (!placementAvailable(board,row,col,horizontal)){
+//                         continue;
+//                     }
+
+                    
+//                 }
+//             }
+//         }
+        
+//     }
+// }
 
 int negamax(pBot bot, int depth,int alpha,int beta, Deadline *deadline);
 
