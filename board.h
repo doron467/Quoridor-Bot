@@ -43,14 +43,6 @@ typedef struct _Move {
     int8_t b2;
 } Move;
 
-
-// effectively an 81 bitmap for the board tiles
-typedef struct _TileSet {
-    uint32_t bits[TILES_HASHSET_LENGTH];
-} TileSet;
-
-typedef TileSet *pTileSet;
-
 typedef struct _Board {
     uint64_t hWalls; // hashset for horizontal walls
     uint64_t vWalls; // hashset for vertical walls
